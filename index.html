@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="theme-color" content="#080f1f"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>Absensi — SMKN 1 Tana Tidung</title>
+<link rel="manifest" href="manifest.json"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#080f1f;--navy2:#0d1a30;--navy3:#152240;--navy4:#1c2e52;
+  --gold:#e8b84b;--gold2:#f5d07a;--gold3:#fce9a8;
+  --white:#ede9e0;--muted:#6b7e9a;--faint:#3a4d66;
+  --green:#3dba7e;--red:#e85555;--blue:#5b9cf6;
+  --card:rgba(255,255,255,0.045);--border:rgba(232,184,75,0.18);
+  --r:16px;--font:'Plus Jakarta Sans',sans-serif;--serif:'Instrument Serif',serif;
+}
+html,body{height:100%;background:var(--navy);color:var(--white);font-family:var(--font);overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 90% 70% at 15% -5%,rgba(232,184,75,.11) 0%,transparent 55%),
+             radial-gradient(ellipse 70% 90% at 90% 105%,rgba(61,186,126,.07) 0%,transparent 55%)}
+
+/* ── SCREENS ─────────────────────────────── */
+.screen{display:none;min-height:100vh;position:relative;z-index:1}
+.screen.active{display:flex;flex-direction:column}
+
+/* ── OFFLINE / INSTALL ───────────────────── */
+#offline-bar{display:none;background:var(--red);color:#fff;text-align:center;font-size:11px;font-weight:700;padding:7px;letter-spacing:.06em;position:fixed;top:0;left:0;right:0;z-index:999}
+#offline-bar.show{display:block}
+#install-bar{display:none;align-items:center;gap:10px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);padding:11px 16px;font-size:12px;font-weight:700;position:fixed;top:0;left:0;right:0;z-index:998}
+#install-bar.show{display:flex}
+#install-bar button{background:var(--navy);color:#fff;border:none;padding:5px 12px;border-radius:20px;font-weight:700;font-size:11px;cursor:pointer;font-family:var(--font)}
+#install-close{background:transparent!important;color:var(--navy)!important;font-size:18px;margin-left:auto;padding:0!important}
+
+/* ── LOGIN / REGISTER SCREEN ────────────── */
+#screen-login,#screen-register{align-items:center;justify-content:center;padding:24px 20px}
+.auth-wrap{width:100%;max-width:400px}
+.auth-emblem{text-align:center;margin-bottom:28px}
+.auth-emblem .emb-ring{width:80px;height:80px;border-radius:22px;background:linear-gradient(135deg,var(--gold),var(--gold2));display:grid;place-items:center;font-size:38px;margin:0 auto 14px;box-shadow:0 8px 32px rgba(232,184,75,.4)}
+.auth-emblem h1{font-family:var(--serif);font-size:22px;color:var(--white);line-height:1.2}
+.auth-emblem p{font-size:12px;color:var(--muted);margin-top:4px;font-weight:500}
+.auth-card{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:20px;padding:24px;backdrop-filter:blur(12px)}
+.auth-card h2{font-size:16px;font-weight:800;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.field .inp-wrap{position:relative}
+.field input{width:100%;padding:12px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:11px;color:var(--white);font-family:var(--font);font-size:14px;font-weight:500;outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--gold);background:rgba(232,184,75,.06)}
+.field input::placeholder{color:var(--faint)}
+.field .eye-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1}
+.field .hint{font-size:11px;color:var(--muted);margin-top:5px}
+.field .hint.err{color:var(--red)}
+.auth-divider{text-align:center;margin:20px 0;color:var(--faint);font-size:12px;position:relative}
+.auth-divider::before{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,.08)}
+.auth-divider span{background:transparent;padding:0 10px;position:relative}
+.auth-link{text-align:center;margin-top:16px;font-size:13px;color:var(--muted)}
+.auth-link a{color:var(--gold);font-weight:700;cursor:pointer;text-decoration:none}
+
+/* ── BUTTONS ─────────────────────────────── */
+.btn{width:100%;padding:14px;border:none;border-radius:12px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.03em;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);box-shadow:0 4px 20px rgba(232,184,75,.35)}
+.btn-gold:active{transform:scale(.97)}
+.btn-gold:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-outline{background:transparent;color:var(--gold);border:1.5px solid rgba(232,184,75,.5)}
+.btn-outline:active{background:rgba(232,184,75,.08)}
+.btn-ghost{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid rgba(255,255,255,.08)}
+.btn-danger{background:rgba(232,85,85,.12);color:var(--red);border:1.5px solid rgba(232,85,85,.25)}
+.btn-sm{padding:8px 14px;font-size:12px;border-radius:9px;width:auto}
+.btn-row{display:flex;gap:10px;margin-bottom:12px}
+.btn-row .btn{flex:1}
+
+/* ── APP SCREEN ──────────────────────────── */
+#screen-app{padding-bottom:0}
+.app-header{position:relative;z-index:10;padding:16px 18px;display:flex;align-items:center;gap:11px;border-bottom:1px solid rgba(255,255,255,.05)}
+.app-logo{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--gold),var(--gold2));display:grid;place-items:center;font-size:20px;flex-shrink:0;box-shadow:0 3px 12px rgba(232,184,75,.3)}
+.app-school h1{font-size:12px;font-weight:800;color:var(--gold);letter-spacing:.06em;text-transform:uppercase}
+.app-school p{font-size:10px;color:var(--muted);font-weight:500;margin-top:1px}
+.admin-pill{margin-left:auto;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:50px;padding:6px 10px 6px 8px;cursor:pointer;transition:background .2s;flex-shrink:0}
+.admin-pill:active{background:rgba(255,255,255,.1)}
+.admin-avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--navy3),var(--navy4));border:1.5px solid var(--border);display:grid;place-items:center;font-size:12px}
+.admin-name{font-size:11px;font-weight:700;color:var(--white);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── TIME STRIP ──────────────────────────── */
+.time-strip{position:relative;z-index:10;margin:14px 16px 0;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(8px)}
+.t-clock{font-family:var(--serif);font-size:34px;line-height:1;color:var(--gold)}
+.t-clock span{font-size:18px;opacity:.6}
+.t-right{text-align:right}
+.t-hari{font-size:14px;font-weight:700}
+.t-tgl{font-size:11px;color:var(--muted);margin-top:2px}
+.net-badge{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:var(--muted);padding:4px 8px;background:rgba(255,255,255,.04);border-radius:20px;border:1px solid rgba(255,255,255,.07);margin-top:8px;align-self:flex-end}
+.ndot{width:7px;height:7px;border-radius:50%;background:var(--red);transition:background .4s}
+.ndot.on{background:var(--green);box-shadow:0 0 7px var(--green);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── TABS ────────────────────────────────── */
+.tabs{position:relative;z-index:10;display:flex;gap:6px;margin:14px 16px 0;background:rgba(255,255,255,.04);border-radius:11px;padding:4px;border:1px solid rgba(255,255,255,.05)}
+.tab-btn{flex:1;padding:9px 6px;border:none;border-radius:8px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:var(--muted);letter-spacing:.03em}
+.tab-btn.active{background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);box-shadow:0 3px 10px rgba(232,184,75,.35)}
+
+/* ── PAGES ───────────────────────────────── */
+.page{display:none;position:relative;z-index:10;padding:0 16px 110px;overflow-y:auto}
+.page.active{display:block;animation:fadeUp .28s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.sec-title{font-size:10px;font-weight:800;color:var(--gold);letter-spacing:.1em;text-transform:uppercase;margin:20px 0 10px;display:flex;align-items:center;gap:6px}
+
+/* ── CARD ────────────────────────────────── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;backdrop-filter:blur(8px)}
+.card-title{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+
+/* ── FORM INPUTS ─────────────────────────── */
+.field input,.field select{width:100%;padding:12px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:var(--white);font-family:var(--font);font-size:14px;font-weight:500;outline:none;transition:border-color .2s;appearance:none}
+.field input:focus,.field select:focus{border-color:var(--gold)}
+.field select option{background:var(--navy2);color:var(--white)}
+
+/* ── CAMERA ──────────────────────────────── */
+.cam-box{position:relative;width:100%;padding-top:100%;border-radius:var(--r);overflow:hidden;background:rgba(0,0,0,.4);margin-bottom:12px;border:2px dashed rgba(232,184,75,.25)}
+.cam-box video,.cam-box canvas,.cam-box img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+.cam-box .active{display:block}
+.cam-ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted)}
+.cam-ph.hidden{display:none}
+.cam-ph .ci{font-size:38px;opacity:.4}
+.cam-ph p{font-size:12px;font-weight:600}
+.cam-ring{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none}
+.cam-ring.active{display:flex}
+.cam-ring::before{content:'';width:70px;height:70px;border-radius:50%;border:3px solid rgba(232,184,75,.55);animation:rp 2s infinite}
+@keyframes rp{0%{transform:scale(.85);opacity:1}100%{transform:scale(1.5);opacity:0}}
+.flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:20;transition:opacity .05s;border-radius:var(--r)}
+
+/* ── LOCATION ────────────────────────────── */
+.loc-box{display:flex;align-items:flex-start;gap:11px;padding:13px;border-radius:12px;background:rgba(232,184,75,.06);border:1px solid rgba(232,184,75,.2);margin-bottom:12px}
+.loc-box.ok{background:rgba(61,186,126,.08);border-color:rgba(61,186,126,.25)}
+.loc-box.err{background:rgba(232,85,85,.08);border-color:rgba(232,85,85,.25)}
+.loc-ico{font-size:20px;flex-shrink:0;margin-top:1px}
+.loc-txt{font-size:12px;color:var(--muted);line-height:1.6}
+.loc-txt strong{color:var(--white);font-size:13px;display:block;margin-bottom:1px}
+
+/* ── FIXED SUBMIT ────────────────────────── */
+.submit-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--navy) 65%,transparent)}
+.submit-bar .btn{font-size:15px;padding:15px}
+
+/* ── STATS ───────────────────────────────── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.stat-c{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:12px 8px;text-align:center}
+.stat-c .n{font-family:var(--serif);font-size:26px;line-height:1;color:var(--gold)}
+.stat-c .l{font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:3px}
+
+/* ── RECORD ITEM ─────────────────────────── */
+.rec{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px;margin-bottom:9px;display:flex;gap:11px;align-items:flex-start;animation:fadeUp .25s ease}
+.rec-thumb{width:50px;height:50px;border-radius:10px;flex-shrink:0;object-fit:cover;border:1.5px solid var(--border);background:rgba(255,255,255,.06)}
+.rec-thumb.nophoto{display:grid;place-items:center;font-size:20px;color:var(--muted)}
+.rec-info{flex:1;min-width:0}
+.rec-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-meta{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.7}
+.rec-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0}
+.badge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;letter-spacing:.05em;text-transform:uppercase}
+.b-hadir{background:rgba(61,186,126,.18);color:var(--green);border:1px solid rgba(61,186,126,.3)}
+.b-izin{background:rgba(232,184,75,.18);color:var(--gold);border:1px solid rgba(232,184,75,.3)}
+.b-sakit{background:rgba(91,156,246,.18);color:var(--blue);border:1px solid rgba(91,156,246,.3)}
+.del-btn{background:none;border:none;color:var(--faint);cursor:pointer;font-size:15px;transition:color .2s;padding:2px}
+.del-btn:hover{color:var(--red)}
+
+/* ── SEARCH BAR ──────────────────────────── */
+.search-wrap{position:relative;margin-bottom:14px}
+.search-wrap input{width:100%;padding:11px 14px 11px 38px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:11px;color:var(--white);font-family:var(--font);font-size:13px;outline:none;transition:border-color .2s}
+.search-wrap input:focus{border-color:var(--gold)}
+.search-wrap .si{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px}
+
+/* ── EXPORT BTN ──────────────────────────── */
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.toolbar .sec-title{margin:0}
+
+/* ── MODAL ADMIN ─────────────────────────── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
+.modal-bg.show{display:flex}
+.modal{background:var(--navy2);border:1px solid var(--border);border-radius:22px 22px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px}
+.modal h3{font-size:15px;font-weight:800;color:var(--white);margin-bottom:6px}
+.modal p{font-size:12px;color:var(--muted);margin-bottom:20px}
+.modal-admin-info{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.05);border-radius:12px;padding:14px;margin-bottom:16px;border:1px solid rgba(255,255,255,.07)}
+.modal-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--navy3),var(--navy4));border:2px solid var(--border);display:grid;place-items:center;font-size:20px}
+.modal-uname{font-size:13px;font-weight:700;color:var(--white)}
+.modal-role{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* ── EMPTY STATE ─────────────────────────── */
+.empty{text-align:center;padding:48px 20px;color:var(--muted)}
+.empty .ei{font-size:44px;margin-bottom:12px;opacity:.35}
+.empty p{font-size:13px;font-weight:500}
+
+/* ── TOAST ───────────────────────────────── */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--navy3);border:1px solid var(--border);color:var(--white);font-size:13px;font-weight:600;padding:11px 20px;border-radius:50px;white-space:nowrap;opacity:0;transition:all .3s;z-index:900;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(61,186,126,.45)}
+.toast.er{border-color:rgba(232,85,85,.45)}
+
+/* ── SPINNER ─────────────────────────────── */
+.spin{width:17px;height:17px;border:2px solid rgba(10,22,40,.3);border-top-color:var(--navy);border-radius:50%;animation:sp .6s linear infinite;display:none}
+.spin.on{display:block}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ── SCROLLBAR ───────────────────────────── */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--navy3);border-radius:3px}
+</style>
+</head>
+<body>
+
+<div id="offline-bar">⚡ MODE OFFLINE — Data tersimpan lokal di perangkat Anda</div>
+<div id="install-bar">
+  <span>📲</span><span>Pasang ke Homescreen untuk akses offline</span>
+  <button id="btn-install">Pasang</button>
+  <button id="install-close">✕</button>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!--  SCREEN: LOGIN                             -->
+<!-- ══════════════════════════════════════════ -->
+<div class="screen active" id="screen-login">
+  <div style="flex:1;display:flex;align-items:center;padding:24px 20px">
+    <div class="auth-wrap">
+      <div class="auth-emblem">
+        <div class="emb-ring">🏫</div>
+        <h1>SMK Negeri 1<br/>Tana Tidung</h1>
+        <p>Sistem Absensi Digital — Kalimantan Utara</p>
+      </div>
+      <div class="auth-card">
+        <h2>🔐 Masuk Admin</h2>
+        <div class="field">
+          <label>Username</label>
+          <input type="text" id="l-user" placeholder="Username admin…" autocomplete="username" autocapitalize="none"/>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <div class="inp-wrap">
+            <input type="password" id="l-pass" placeholder="Password…" autocomplete="current-password"/>
+            <button class="eye-btn" onclick="toggleEye('l-pass',this)">👁</button>
+          </div>
+          <p class="hint err" id="l-err" style="display:none"></p>
+        </div>
+        <br/>
+        <button class="btn btn-gold" onclick="doLogin()" id="btn-login">
+          <span id="l-txt">Masuk</span>
+          <div class="spin" id="l-spin"></div>
+        </button>
+      </div>
+      <p class="auth-link">Belum punya akun? <a onclick="showScreen('register')">Daftar sebagai Admin</a></p>
+      <p style="text-align:center;font-size:10px;color:var(--faint);margin-top:20px">
+        💾 Data tersimpan offline di perangkat ini<br/>menggunakan IndexedDB
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!--  SCREEN: REGISTER                          -->
+<!-- ══════════════════════════════════════════ -->
+<div class="screen" id="screen-register">
+  <div style="flex:1;display:flex;align-items:center;padding:24px 20px">
+    <div class="auth-wrap">
+      <div class="auth-emblem">
+        <div class="emb-ring">🏫</div>
+        <h1>Daftar Admin Baru</h1>
+        <p>SMK Negeri 1 Tana Tidung</p>
+      </div>
+      <div class="auth-card">
+        <h2>📝 Data Admin</h2>
+        <div class="field">
+          <label>Nama Lengkap</label>
+          <input type="text" id="r-nama" placeholder="Nama lengkap (guru/staf)…"/>
+        </div>
+        <div class="field">
+          <label>Username</label>
+          <input type="text" id="r-user" placeholder="Buat username unik…" autocapitalize="none"/>
+          <p class="hint">Hanya huruf kecil, angka, dan _</p>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <div class="inp-wrap">
+            <input type="password" id="r-pass" placeholder="Min. 6 karakter…" oninput="checkStrength()"/>
+            <button class="eye-btn" onclick="toggleEye('r-pass',this)">👁</button>
+          </div>
+          <p class="hint" id="r-strength"></p>
+        </div>
+        <div class="field">
+          <label>Konfirmasi Password</label>
+          <div class="inp-wrap">
+            <input type="password" id="r-pass2" placeholder="Ulangi password…"/>
+            <button class="eye-btn" onclick="toggleEye('r-pass2',this)">👁</button>
+          </div>
+          <p class="hint err" id="r-err" style="display:none"></p>
+        </div>
+        <br/>
+        <button class="btn btn-gold" onclick="doRegister()" id="btn-register">
+          <span id="r-txt">Daftar Sekarang</span>
+          <div class="spin" id="r-spin"></div>
+        </button>
+      </div>
+      <p class="auth-link">Sudah punya akun? <a onclick="showScreen('login')">← Kembali ke Login</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!--  SCREEN: APP                               -->
+<!-- ══════════════════════════════════════════ -->
+<div class="screen" id="screen-app">
+
+  <!-- Header -->
+  <div class="app-header">
+    <div class="app-logo">🏫</div>
+    <div class="app-school">
+      <h1>SMKN 1 Tana Tidung</h1>
+      <p>Sistem Absensi Digital</p>
+    </div>
+    <div class="admin-pill" onclick="showAdminModal()">
+      <div class="admin-avatar">👤</div>
+      <span class="admin-name" id="hdr-admin">Admin</span>
+    </div>
+  </div>
+
+  <!-- Time Strip -->
+  <div class="time-strip">
+    <div>
+      <div class="t-clock" id="clock">00<span>:</span>00</div>
+      <div class="net-badge"><div class="ndot" id="ndot"></div><span id="nlabel">Offline</span></div>
+    </div>
+    <div class="t-right">
+      <div class="t-hari" id="hari">—</div>
+      <div class="t-tgl" id="tgl">—</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('absen')">✏️ Catat Absen</button>
+    <button class="tab-btn" onclick="switchTab('riwayat')">📋 Riwayat</button>
+    <button class="tab-btn" onclick="switchTab('info')">ℹ️ Info DB</button>
+  </div>
+
+  <!-- ── PAGE ABSEN ─────────────────────── -->
+  <div class="page active" id="page-absen">
+
+    <p class="sec-title">👤 Data Siswa</p>
+    <div class="card">
+      <div class="card-title">📋 Identitas</div>
+      <div class="field"><label>Nama Lengkap</label><input type="text" id="a-nama" placeholder="Nama lengkap siswa…"/></div>
+      <div class="field"><label>NIS / NISN</label><input type="text" id="a-nis" placeholder="Nomor Induk Siswa…" inputmode="numeric"/></div>
+      <div class="field">
+        <label>Kelas</label>
+        <select id="a-kelas">
+          <option value="">— Pilih Kelas —</option>
+          <optgroup label="Kelas X">
+            <option>X TKRO 1</option><option>X TKRO 2</option>
+            <option>X TKJ 1</option><option>X TKJ 2</option>
+            <option>X TBSM 1</option><option>X TBSM 2</option>
+            <option>X AKL</option><option>X OTKP</option>
+          </optgroup>
+          <optgroup label="Kelas XI">
+            <option>XI TKRO 1</option><option>XI TKRO 2</option>
+            <option>XI TKJ 1</option><option>XI TKJ 2</option>
+            <option>XI TBSM 1</option><option>XI TBSM 2</option>
+            <option>XI AKL</option><option>XI OTKP</option>
+          </optgroup>
+          <optgroup label="Kelas XII">
+            <option>XII TKRO 1</option><option>XII TKRO 2</option>
+            <option>XII TKJ 1</option><option>XII TKJ 2</option>
+            <option>XII TBSM 1</option><option>XII TBSM 2</option>
+            <option>XII AKL</option><option>XII OTKP</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="field">
+        <label>Status Kehadiran</label>
+        <select id="a-status">
+          <option value="Hadir">✅ Hadir</option>
+          <option value="Izin">📋 Izin</option>
+          <option value="Sakit">🤒 Sakit</option>
+        </select>
+      </div>
+    </div>
+
+    <p class="sec-title">📸 Foto Selfie</p>
+    <div class="card">
+      <div class="card-title">📷 Kamera</div>
+      <div class="cam-box" id="cam-box">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+        <img id="photo-prev" alt="selfie"/>
+        <div class="flash" id="flash"></div>
+        <div class="cam-ring" id="cam-ring"></div>
+        <div class="cam-ph" id="cam-ph"><div class="ci">📷</div><p>Kamera belum aktif</p></div>
+      </div>
+      <div id="brow-cam"><button class="btn btn-outline" onclick="startCam()">🎥 Aktifkan Kamera</button></div>
+      <div id="brow-cap" style="display:none" class="btn-row">
+        <button class="btn btn-gold" onclick="snapPhoto()">📸 Ambil Foto</button>
+        <button class="btn btn-danger" onclick="cancelCam()">✕</button>
+      </div>
+      <div id="brow-ret" style="display:none">
+        <button class="btn btn-outline" onclick="retakeCam()">🔄 Foto Ulang</button>
+      </div>
+    </div>
+
+    <p class="sec-title">📍 Lokasi GPS</p>
+    <div class="card">
+      <div class="card-title">🗺️ Koordinat</div>
+      <div class="loc-box" id="loc-box">
+        <div class="loc-ico">📡</div>
+        <div class="loc-txt"><strong>Belum Ada Lokasi</strong>Tekan tombol di bawah untuk mengambil GPS</div>
+      </div>
+      <button class="btn btn-outline" onclick="getGPS()" id="btn-gps">📍 Ambil Lokasi GPS</button>
+    </div>
+
+  </div><!-- /page-absen -->
+
+  <!-- ── PAGE RIWAYAT ───────────────────── -->
+  <div class="page" id="page-riwayat">
+
+    <div class="stats-row" id="stats-row">
+      <div class="stat-c"><div class="n" id="s-total">0</div><div class="l">Total</div></div>
+      <div class="stat-c"><div class="n" id="s-hadir" style="color:var(--green)">0</div><div class="l">Hadir</div></div>
+      <div class="stat-c"><div class="n" id="s-izin" style="color:var(--gold)">0</div><div class="l">Izin</div></div>
+      <div class="stat-c"><div class="n" id="s-sakit" style="color:var(--blue)">0</div><div class="l">Sakit</div></div>
+    </div>
+
+    <div class="search-wrap">
+      <span class="si">🔍</span>
+      <input type="text" placeholder="Cari nama, NIS, kelas…" oninput="filterRecords(this.value)" id="srch"/>
+    </div>
+
+    <div class="toolbar">
+      <p class="sec-title">📄 Data Absensi</p>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ CSV</button>
+        <button class="btn btn-danger btn-sm" onclick="clearAll()">🗑 Hapus</button>
+      </div>
+    </div>
+
+    <div id="rec-list"></div>
+
+  </div><!-- /page-riwayat -->
+
+  <!-- ── PAGE INFO DB ───────────────────── -->
+  <div class="page" id="page-info">
+    <p class="sec-title">🗄️ Database Info</p>
+    <div class="card">
+      <div class="card-title">💾 IndexedDB (Penyimpanan Lokal)</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.9">
+        <p style="color:var(--green);font-weight:700;margin-bottom:8px">✅ Database Utama — Gratis & Offline</p>
+        <p>🔹 <strong style="color:var(--white)">Engine:</strong> IndexedDB (bawaan browser)</p>
+        <p>🔹 <strong style="color:var(--white)">Kapasitas:</strong> Hingga ratusan MB per origin</p>
+        <p>🔹 <strong style="color:var(--white)">Offline:</strong> 100% berjalan tanpa internet</p>
+        <p>🔹 <strong style="color:var(--white)">Biaya:</strong> Gratis selamanya</p>
+        <p>🔹 <strong style="color:var(--white)">Password:</strong> Diamankan dengan PBKDF2 + Salt</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">☁️ Supabase — Sinkronisasi Cloud</div>
+      <div id="supa-status-bar" style="display:none;font-size:12px;font-weight:700;padding:8px 12px;border-radius:9px;margin-bottom:14px;text-align:center"></div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+        Hubungkan ke Supabase agar data absensi tersimpan di cloud dan bisa diakses dari perangkat mana pun.
+        Buat project gratis di <a href="https://supabase.com" target="_blank" style="color:var(--gold)">supabase.com</a>, lalu salin URL dan Anon Key dari <em>Project Settings → API</em>.
+      </div>
+      <div class="field"><label>Supabase URL</label>
+        <input type="text" id="supa-url" placeholder="https://xxxx.supabase.co" style="width:100%;padding:11px 13px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:11px;color:var(--white);font-family:var(--font);font-size:13px;outline:none"/>
+      </div>
+      <div class="field"><label>Anon Key</label>
+        <input type="password" id="supa-key" placeholder="eyJhbGci…" style="width:100%;padding:11px 13px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:11px;color:var(--white);font-family:var(--font);font-size:13px;outline:none"/>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline btn-sm" onclick="saveSupaConfig()">💾 Simpan</button>
+        <button class="btn btn-gold btn-sm" onclick="syncToSupabase()" id="btn-sync">☁️ Sync Sekarang</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearSupaConfig()" style="color:var(--red)">🗑 Hapus</button>
+      </div>
+      <div id="supa-sync-info" style="margin-top:12px;font-size:12px;color:var(--muted);display:none"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 Statistik Penyimpanan</div>
+      <div id="db-stats" style="font-size:13px;color:var(--muted);line-height:2">Memuat…</div>
+    </div>
+    <div class="card">
+      <div class="card-title">🔑 Ganti Password Admin</div>
+      <div class="field"><label>Password Lama</label>
+        <div class="inp-wrap"><input type="password" id="cp-old" placeholder="Password saat ini…"/><button class="eye-btn" onclick="toggleEye('cp-old',this)">👁</button></div>
+      </div>
+      <div class="field"><label>Password Baru</label>
+        <div class="inp-wrap"><input type="password" id="cp-new" placeholder="Password baru…"/><button class="eye-btn" onclick="toggleEye('cp-new',this)">👁</button></div>
+      </div>
+      <p class="hint err" id="cp-err" style="display:none;margin-bottom:12px"></p>
+      <button class="btn btn-outline" onclick="changePassword()">🔒 Simpan Password Baru</button>
+    </div>
+  </div><!-- /page-info -->
+
+  <!-- Fixed Submit -->
+  <div class="submit-bar" id="submit-bar">
+    <button class="btn btn-gold" onclick="submitAbsen()" id="btn-submit">
+      <span id="sub-txt">✅ Simpan Absensi</span>
+      <div class="spin" id="sub-spin"></div>
+    </button>
+  </div>
+
+</div><!-- /screen-app -->
+
+<!-- Admin Modal -->
+<div class="modal-bg" id="admin-modal" onclick="if(event.target===this)closeAdminModal()">
+  <div class="modal">
+    <h3>👤 Profil Admin</h3>
+    <p>Informasi akun yang sedang aktif</p>
+    <div class="modal-admin-info">
+      <div class="modal-avatar">👤</div>
+      <div>
+        <div class="modal-uname" id="mod-nama">—</div>
+        <div class="modal-role" id="mod-user">@—</div>
+        <div class="modal-role" id="mod-since" style="font-size:10px">—</div>
+      </div>
+    </div>
+    <button class="btn btn-danger" onclick="doLogout()" style="margin-bottom:10px">🚪 Keluar / Logout</button>
+    <button class="btn btn-ghost" onclick="closeAdminModal()">Batal</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  SUPABASE  CONFIG & SYNC
+// ═══════════════════════════════════════════════════
+const SUPA_URL_KEY  = 'supa_url';
+const SUPA_KEY_KEY  = 'supa_anon_key';
+let supaClient = null;
+
+function getSupaConfig() {
+  return {
+    url: localStorage.getItem(SUPA_URL_KEY) || '',
+    key: localStorage.getItem(SUPA_KEY_KEY) || ''
+  };
+}
+
+function initSupabase() {
+  const { url, key } = getSupaConfig();
+  if (!url || !key) { supaClient = null; return false; }
+  try {
+    supaClient = supabase.createClient(url, key);
+    return true;
+  } catch {
+    supaClient = null; return false;
+  }
+}
+
+function saveSupaConfig() {
+  const url = document.getElementById('supa-url').value.trim().replace(/\/$/, '');
+  const key = document.getElementById('supa-key').value.trim();
+  if (!url || !key) { showSupaStatus('⚠️ URL dan Anon Key wajib diisi', 'warn'); return; }
+  if (!url.startsWith('https://')) { showSupaStatus('⚠️ URL harus diawali https://', 'warn'); return; }
+  localStorage.setItem(SUPA_URL_KEY, url);
+  localStorage.setItem(SUPA_KEY_KEY, key);
+  if (initSupabase()) {
+    showSupaStatus('✅ Konfigurasi tersimpan! Siap sinkronisasi.', 'ok');
+  } else {
+    showSupaStatus('❌ Gagal menginisialisasi Supabase. Periksa URL/Key.', 'err');
+  }
+}
+
+function clearSupaConfig() {
+  if (!confirm('Hapus konfigurasi Supabase?')) return;
+  localStorage.removeItem(SUPA_URL_KEY);
+  localStorage.removeItem(SUPA_KEY_KEY);
+  supaClient = null;
+  document.getElementById('supa-url').value = '';
+  document.getElementById('supa-key').value = '';
+  showSupaStatus('🗑 Konfigurasi dihapus', 'warn');
+  document.getElementById('supa-sync-info').style.display = 'none';
+}
+
+function showSupaStatus(msg, type) {
+  const el = document.getElementById('supa-status-bar');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.background = type === 'ok'
+    ? 'rgba(61,186,126,.15)' : type === 'err'
+    ? 'rgba(232,85,85,.15)' : 'rgba(232,184,75,.12)';
+  el.style.color = type === 'ok'
+    ? 'var(--green)' : type === 'err'
+    ? 'var(--red)' : 'var(--gold)';
+}
+
+// Load saved config into inputs when info tab opens
+function loadSupaInputs() {
+  const { url, key } = getSupaConfig();
+  if (url) document.getElementById('supa-url').value = url;
+  if (key) document.getElementById('supa-key').value = key;
+  if (url && key && supaClient) {
+    showSupaStatus('✅ Terhubung ke Supabase', 'ok');
+  } else if (url && key) {
+    showSupaStatus('⚠️ Konfigurasi ada tapi belum diinisialisasi', 'warn');
+  }
+}
+
+/*
+  SQL yang perlu dibuat di Supabase (jalankan di SQL Editor):
+
+  create table if not exists absensi (
+    id          bigint primary key,
+    admin_id    integer,
+    admin_nama  text,
+    nama        text,
+    nis         text,
+    kelas       text,
+    status      text,
+    foto        text,
+    lat         double precision,
+    lng         double precision,
+    akurasi     double precision,
+    tanggal     text,
+    waktu       text,
+    timestamp   bigint,
+    synced_at   timestamptz default now()
+  );
+
+  -- Aktifkan RLS dan tambahkan policy anon insert+select:
+  alter table absensi enable row level security;
+  create policy "anon read"   on absensi for select using (true);
+  create policy "anon insert" on absensi for insert with check (true);
+  create policy "anon delete" on absensi for delete using (true);
+*/
+
+async function syncToSupabase() {
+  if (!supaClient) {
+    showSupaStatus('❌ Supabase belum dikonfigurasi. Isi URL & Key dulu.', 'err');
+    return;
+  }
+  if (!navigator.onLine) {
+    showSupaStatus('❌ Tidak ada koneksi internet', 'err');
+    return;
+  }
+
+  const btn = document.getElementById('btn-sync');
+  btn.disabled = true;
+  btn.textContent = '⏳ Menyinkronkan…';
+  showSupaStatus('⏳ Mengambil data dari cloud…', 'warn');
+
+  try {
+    const localRecs  = await dbGetAll('absensi');
+    const localIds   = new Set(localRecs.map(r => r.id));
+
+    // 1. Pull from Supabase → IndexedDB (ambil data dari perangkat lain)
+    const { data: cloudRecs, error: pullErr } = await supaClient
+      .from('absensi')
+      .select('*');
+    if (pullErr) throw pullErr;
+
+    let pulled = 0;
+    for (const row of (cloudRecs || [])) {
+      const localId = row.id;
+      if (!localIds.has(localId)) {
+        await dbPut('absensi', {
+          id:        row.id,
+          adminId:   row.admin_id,
+          adminNama: row.admin_nama,
+          nama:      row.nama,
+          nis:       row.nis,
+          kelas:     row.kelas,
+          status:    row.status,
+          foto:      row.foto,
+          lat:       row.lat,
+          lng:       row.lng,
+          akurasi:   row.akurasi,
+          tanggal:   row.tanggal,
+          waktu:     row.waktu,
+          timestamp: row.timestamp
+        });
+        pulled++;
+      }
+    }
+
+    // 2. Push to Supabase → data lokal yang belum ada di cloud
+    const cloudIds   = new Set((cloudRecs || []).map(r => r.id));
+    const toUpload   = localRecs.filter(r => !cloudIds.has(r.id));
+
+    let pushed = 0;
+    const BATCH = 20;
+    for (let i = 0; i < toUpload.length; i += BATCH) {
+      const chunk = toUpload.slice(i, i + BATCH).map(r => ({
+        id:         r.id,
+        admin_id:   r.adminId,
+        admin_nama: r.adminNama,
+        nama:       r.nama,
+        nis:        r.nis,
+        kelas:      r.kelas,
+        status:     r.status,
+        foto:       r.foto || null,
+        lat:        r.lat,
+        lng:        r.lng,
+        akurasi:    r.akurasi,
+        tanggal:    r.tanggal,
+        waktu:      r.waktu,
+        timestamp:  r.timestamp
+      }));
+      const { error: pushErr } = await supaClient.from('absensi').upsert(chunk, { onConflict: 'id' });
+      if (pushErr) throw pushErr;
+      pushed += chunk.length;
+    }
+
+    const now = new Date().toLocaleString('id-ID');
+    const info = document.getElementById('supa-sync-info');
+    info.style.display = 'block';
+    info.innerHTML = `📤 Dikirim: <strong style="color:var(--white)">${pushed}</strong> record &nbsp;|&nbsp; 📥 Diterima: <strong style="color:var(--white)">${pulled}</strong> record baru<br/>🕐 Terakhir sync: ${now}`;
+
+    showSupaStatus(`✅ Sinkronisasi selesai! ↑${pushed} ↓${pulled}`, 'ok');
+    showToast(`☁️ Sync selesai — ↑${pushed} ↓${pulled}`, 'ok');
+
+    // Refresh riwayat jika sedang terbuka
+    if (document.getElementById('page-riwayat').classList.contains('active')) loadRiwayat();
+
+  } catch(e) {
+    showSupaStatus('❌ Sync gagal: ' + (e.message || JSON.stringify(e)), 'err');
+    showToast('❌ Sync gagal', 'er');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '☁️ Sync Sekarang';
+  }
+}
+
+// Auto-sync saat kembali online (jika sudah dikonfigurasi)
+window.addEventListener('online', () => {
+  updateNet();
+  if (supaClient) {
+    showToast('🌐 Online — sync otomatis…');
+    setTimeout(() => syncToSupabase(), 1500);
+  }
+});
+
+// ═══════════════════════════════════════════════════
+//  DATABASE  (IndexedDB v3)
+// ═══════════════════════════════════════════════════
+let db;
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('SMKN1TT_DB', 3);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('admins')) {
+        const s = d.createObjectStore('admins', { keyPath: 'id', autoIncrement: true });
+        s.createIndex('username', 'username', { unique: true });
+      }
+      if (!d.objectStoreNames.contains('absensi')) {
+        const s = d.createObjectStore('absensi', { keyPath: 'id', autoIncrement: true });
+        s.createIndex('timestamp', 'timestamp');
+        s.createIndex('adminId', 'adminId');
+        s.createIndex('nis', 'nis');
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror = e => rej(e.target.error);
+  });
+}
+
+function dbGet(store, key) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    tx.objectStore(store).get(key).onsuccess = e => res(e.target.result);
+    tx.onerror = rej;
+  });
+}
+function dbGetByIndex(store, idx, val) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    tx.objectStore(store).index(idx).get(val).onsuccess = e => res(e.target.result);
+    tx.onerror = rej;
+  });
+}
+function dbAdd(store, data) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).add(data).onsuccess = e => res(e.target.result);
+    tx.onerror = e => rej(e.target.error);
+  });
+}
+function dbPut(store, data) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(data).onsuccess = e => res(e.target.result);
+    tx.onerror = rej;
+  });
+}
+function dbDelete(store, key) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(key).onsuccess = res;
+    tx.onerror = rej;
+  });
+}
+function dbGetAll(store) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    tx.objectStore(store).getAll().onsuccess = e => res(e.target.result);
+    tx.onerror = rej;
+  });
+}
+function dbClear(store) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).clear().onsuccess = res;
+    tx.onerror = rej;
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  CRYPTO  (PBKDF2 + Salt)
+// ═══════════════════════════════════════════════════
+function genSalt() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function hashPwd(password, salt) {
+  const enc = new TextEncoder();
+  const km = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: enc.encode(salt), iterations: 100000, hash: 'SHA-256' },
+    km, 256
+  );
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  SESSION  (sessionStorage)
+// ═══════════════════════════════════════════════════
+function getSession() {
+  try { return JSON.parse(sessionStorage.getItem('adminSession')); } catch { return null; }
+}
+function setSession(data) { sessionStorage.setItem('adminSession', JSON.stringify(data)); }
+function clearSession() { sessionStorage.removeItem('adminSession'); }
+
+// ═══════════════════════════════════════════════════
+//  SCREEN ROUTER
+// ═══════════════════════════════════════════════════
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+async function initApp() {
+  await openDB();
+  initSupabase(); // inisialisasi Supabase jika config sudah tersimpan
+  const sess = getSession();
+  if (sess) {
+    const admin = await dbGet('admins', sess.id);
+    if (admin) { loadAdminUI(admin); showScreen('app'); return; }
+  }
+  showScreen('login');
+}
+
+// ═══════════════════════════════════════════════════
+//  AUTH: LOGIN
+// ═══════════════════════════════════════════════════
+async function doLogin() {
+  const user = document.getElementById('l-user').value.trim().toLowerCase();
+  const pass = document.getElementById('l-pass').value;
+  const err  = document.getElementById('l-err');
+  err.style.display = 'none';
+
+  if (!user || !pass) { showErr(err, 'Username dan password wajib diisi'); return; }
+
+  setLoading('l-txt', 'l-spin', 'btn-login', true, 'Memverifikasi…');
+
+  try {
+    const admin = await dbGetByIndex('admins', 'username', user);
+    if (!admin) { showErr(err, '❌ Username tidak ditemukan'); return; }
+
+    const hash = await hashPwd(pass, admin.salt);
+    if (hash !== admin.passwordHash) { showErr(err, '❌ Password salah'); return; }
+
+    setSession({ id: admin.id, username: admin.username, namaAdmin: admin.namaAdmin });
+    loadAdminUI(admin);
+    showScreen('app');
+    showToast('✅ Selamat datang, ' + admin.namaAdmin + '!', 'ok');
+    document.getElementById('l-user').value = '';
+    document.getElementById('l-pass').value = '';
+  } catch(e) {
+    showErr(err, '❌ Terjadi kesalahan: ' + e.message);
+  } finally {
+    setLoading('l-txt', 'l-spin', 'btn-login', false, 'Masuk');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  AUTH: REGISTER
+// ═══════════════════════════════════════════════════
+async function doRegister() {
+  const nama  = document.getElementById('r-nama').value.trim();
+  const user  = document.getElementById('r-user').value.trim().toLowerCase();
+  const pass  = document.getElementById('r-pass').value;
+  const pass2 = document.getElementById('r-pass2').value;
+  const err   = document.getElementById('r-err');
+  err.style.display = 'none';
+
+  if (!nama)  { showErr(err, '⚠️ Nama lengkap wajib diisi'); return; }
+  if (!user)  { showErr(err, '⚠️ Username wajib diisi'); return; }
+  if (!/^[a-z0-9_]+$/.test(user)) { showErr(err, '⚠️ Username hanya huruf kecil, angka, dan _'); return; }
+  if (pass.length < 6) { showErr(err, '⚠️ Password minimal 6 karakter'); return; }
+  if (pass !== pass2)  { showErr(err, '⚠️ Konfirmasi password tidak cocok'); return; }
+
+  setLoading('r-txt', 'r-spin', 'btn-register', true, 'Mendaftar…');
+
+  try {
+    const existing = await dbGetByIndex('admins', 'username', user);
+    if (existing) { showErr(err, '❌ Username sudah digunakan'); return; }
+
+    const salt = genSalt();
+    const hash = await hashPwd(pass, salt);
+    const id = await dbAdd('admins', {
+      namaAdmin: nama, username: user,
+      passwordHash: hash, salt,
+      createdAt: new Date().toISOString()
+    });
+
+    setSession({ id, username: user, namaAdmin: nama });
+    const admin = await dbGet('admins', id);
+    loadAdminUI(admin);
+    showScreen('app');
+    showToast('🎉 Akun berhasil dibuat! Selamat datang, ' + nama + '!', 'ok');
+
+    document.getElementById('r-nama').value = '';
+    document.getElementById('r-user').value = '';
+    document.getElementById('r-pass').value = '';
+    document.getElementById('r-pass2').value = '';
+    document.getElementById('r-strength').textContent = '';
+  } catch(e) {
+    showErr(err, '❌ Gagal: ' + e.message);
+  } finally {
+    setLoading('r-txt', 'r-spin', 'btn-register', false, 'Daftar Sekarang');
+  }
+}
+
+function checkStrength() {
+  const p = document.getElementById('r-pass').value;
+  const el = document.getElementById('r-strength');
+  if (!p) { el.textContent = ''; return; }
+  let s = 0, msg = '';
+  if (p.length >= 8) s++;
+  if (/[A-Z]/.test(p)) s++;
+  if (/[0-9]/.test(p)) s++;
+  if (/[^A-Za-z0-9]/.test(p)) s++;
+  const levels = ['','🔴 Lemah','🟡 Cukup','🟢 Kuat','🟢 Sangat Kuat'];
+  el.textContent = p.length < 6 ? '🔴 Terlalu pendek (min. 6)' : (levels[s] || levels[1]);
+  el.className = 'hint ' + (s >= 3 ? '' : 'err');
+}
+
+function doLogout() {
+  clearSession();
+  closeAdminModal();
+  showScreen('login');
+  showToast('👋 Anda telah keluar');
+}
+
+function loadAdminUI(admin) {
+  document.getElementById('hdr-admin').textContent = admin.namaAdmin;
+  document.getElementById('mod-nama').textContent  = admin.namaAdmin;
+  document.getElementById('mod-user').textContent  = '@' + admin.username;
+  document.getElementById('mod-since').textContent = 'Bergabung: ' + new Date(admin.createdAt).toLocaleDateString('id-ID',{year:'numeric',month:'long',day:'numeric'});
+}
+
+// ═══════════════════════════════════════════════════
+//  CHANGE PASSWORD
+// ═══════════════════════════════════════════════════
+async function changePassword() {
+  const sess = getSession(); if (!sess) return;
+  const oldP = document.getElementById('cp-old').value;
+  const newP = document.getElementById('cp-new').value;
+  const err  = document.getElementById('cp-err');
+  err.style.display = 'none';
+  if (!oldP || !newP) { showErr(err,'⚠️ Semua field wajib diisi'); return; }
+  if (newP.length < 6) { showErr(err,'⚠️ Password baru minimal 6 karakter'); return; }
+  const admin = await dbGet('admins', sess.id);
+  const oldHash = await hashPwd(oldP, admin.salt);
+  if (oldHash !== admin.passwordHash) { showErr(err,'❌ Password lama salah'); return; }
+  const newSalt = genSalt();
+  const newHash = await hashPwd(newP, newSalt);
+  await dbPut('admins', { ...admin, salt: newSalt, passwordHash: newHash });
+  document.getElementById('cp-old').value = '';
+  document.getElementById('cp-new').value = '';
+  showToast('🔒 Password berhasil diubah', 'ok');
+}
+
+// ═══════════════════════════════════════════════════
+//  CLOCK
+// ═══════════════════════════════════════════════════
+const DAYS=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const MONS=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+function tick() {
+  const n = new Date();
+  const h = String(n.getHours()).padStart(2,'0'), m = String(n.getMinutes()).padStart(2,'0');
+  document.getElementById('clock').innerHTML = h + '<span>:</span>' + m;
+  document.getElementById('hari').textContent = DAYS[n.getDay()];
+  document.getElementById('tgl').textContent  = n.getDate() + ' ' + MONS[n.getMonth()] + ' ' + n.getFullYear();
+}
+tick(); setInterval(tick, 1000);
+
+// ═══════════════════════════════════════════════════
+//  NETWORK
+// ═══════════════════════════════════════════════════
+function updateNet() {
+  const on = navigator.onLine;
+  document.getElementById('ndot').classList.toggle('on', on);
+  document.getElementById('nlabel').textContent = on ? 'Online' : 'Offline';
+  document.getElementById('offline-bar').classList.toggle('show', !on);
+}
+updateNet();
+window.addEventListener('offline', updateNet);
+
+// ═══════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) =>
+    b.classList.toggle('active', ['absen','riwayat','info'][i] === name));
+  document.querySelectorAll('.page').forEach(p =>
+    p.classList.toggle('active', p.id === 'page-' + name));
+  document.getElementById('submit-bar').style.display = name === 'absen' ? 'block' : 'none';
+  if (name === 'riwayat') loadRiwayat();
+  if (name === 'info')    { loadDBStats(); loadSupaInputs(); }
+}
+
+// ═══════════════════════════════════════════════════
+//  CAMERA
+// ═══════════════════════════════════════════════════
+let stream = null, photoData = null;
+
+async function startCam() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width:{ideal:640}, height:{ideal:640} }, audio: false });
+    const v = document.getElementById('video');
+    v.srcObject = stream; v.classList.add('active');
+    document.getElementById('cam-ring').classList.add('active');
+    document.getElementById('cam-ph').classList.add('hidden');
+    document.getElementById('brow-cam').style.display = 'none';
+    document.getElementById('brow-cap').style.display = 'flex';
+  } catch { showToast('❌ Kamera tidak bisa diakses', 'er'); }
+}
+
+function snapPhoto() {
+  const v = document.getElementById('video');
+  const c = document.getElementById('canvas');
+  const sz = Math.min(v.videoWidth, v.videoHeight);
+  c.width = sz; c.height = sz;
+  const ctx = c.getContext('2d');
+  ctx.save(); ctx.scale(-1,1); ctx.drawImage(v,-sz,0,sz,sz); ctx.restore();
+  const f = document.getElementById('flash');
+  f.style.opacity='1'; setTimeout(()=>f.style.opacity='0',120);
+  photoData = c.toDataURL('image/jpeg', 0.72);
+  const pr = document.getElementById('photo-prev');
+  pr.src = photoData; pr.classList.add('active');
+  document.getElementById('video').classList.remove('active');
+  stopStream();
+  document.getElementById('cam-ring').classList.remove('active');
+  document.getElementById('brow-cap').style.display = 'none';
+  document.getElementById('brow-ret').style.display = 'block';
+}
+
+function retakeCam() {
+  photoData = null;
+  const pr = document.getElementById('photo-prev');
+  pr.classList.remove('active'); pr.src = '';
+  document.getElementById('brow-ret').style.display = 'none';
+  document.getElementById('cam-ph').classList.remove('hidden');
+  document.getElementById('brow-cam').style.display = 'block';
+}
+
+function cancelCam() {
+  stopStream();
+  document.getElementById('video').classList.remove('active');
+  document.getElementById('cam-ring').classList.remove('active');
+  document.getElementById('cam-ph').classList.remove('hidden');
+  document.getElementById('brow-cap').style.display = 'none';
+  document.getElementById('brow-cam').style.display = 'block';
+}
+
+function stopStream() {
+  if (stream) { stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  document.getElementById('video').srcObject = null;
+}
+
+// ═══════════════════════════════════════════════════
+//  GPS
+// ═══════════════════════════════════════════════════
+let gpsData = null;
+
+function getGPS() {
+  const box = document.getElementById('loc-box');
+  const btn = document.getElementById('btn-gps');
+  box.className = 'loc-box';
+  box.innerHTML = '<div class="loc-ico">⏳</div><div class="loc-txt"><strong>Mengambil Lokasi…</strong>Mohon tunggu, GPS aktif</div>';
+  btn.disabled = true; btn.textContent = '⏳ Memproses…';
+
+  if (!navigator.geolocation) {
+    box.className = 'loc-box err';
+    box.innerHTML = '<div class="loc-ico">❌</div><div class="loc-txt"><strong>Tidak Didukung</strong>Browser tidak mendukung GPS</div>';
+    btn.disabled = false; btn.textContent = '📍 Ambil Lokasi GPS'; return;
+  }
+
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude:lat, longitude:lng, accuracy:acc } = pos.coords;
+    gpsData = { lat, lng, acc };
+    box.className = 'loc-box ok';
+    box.innerHTML = `<div class="loc-ico">📍</div><div class="loc-txt"><strong>Lokasi Berhasil ✓</strong>Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}<br/>Akurasi: ±${Math.round(acc)} meter</div>`;
+    btn.disabled = false; btn.textContent = '🔄 Perbarui GPS';
+    showToast('📍 Lokasi berhasil diambil', 'ok');
+  }, err => {
+    const m = {1:'Akses GPS ditolak oleh browser',2:'Sinyal GPS tidak tersedia',3:'Waktu pengambilan habis'};
+    box.className = 'loc-box err';
+    box.innerHTML = `<div class="loc-ico">❌</div><div class="loc-txt"><strong>Gagal Mengambil GPS</strong>${m[err.code]||'Kesalahan tidak diketahui'}</div>`;
+    btn.disabled = false; btn.textContent = '📍 Coba Lagi';
+  }, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+}
+
+// ═══════════════════════════════════════════════════
+//  SUBMIT ABSENSI
+// ═══════════════════════════════════════════════════
+async function submitAbsen() {
+  const sess  = getSession(); if (!sess) { showToast('❌ Sesi berakhir, silakan login ulang','er'); return; }
+  const nama  = document.getElementById('a-nama').value.trim();
+  const nis   = document.getElementById('a-nis').value.trim();
+  const kelas = document.getElementById('a-kelas').value;
+  const stat  = document.getElementById('a-status').value;
+
+  if (!nama)    { showToast('⚠️ Nama siswa wajib diisi','er'); return; }
+  if (!nis)     { showToast('⚠️ NIS wajib diisi','er'); return; }
+  if (!kelas)   { showToast('⚠️ Pilih kelas terlebih dahulu','er'); return; }
+  if (!photoData) { showToast('⚠️ Foto selfie wajib diambil','er'); return; }
+  if (!gpsData)   { showToast('⚠️ Lokasi GPS wajib diambil','er'); return; }
+
+  setLoading('sub-txt','sub-spin','btn-submit',true,'Menyimpan…');
+
+  const now = new Date();
+  try {
+    await dbAdd('absensi', {
+      adminId: sess.id, adminNama: sess.namaAdmin,
+      nama, nis, kelas, status: stat,
+      foto: photoData,
+      lat: gpsData.lat, lng: gpsData.lng, akurasi: gpsData.acc,
+      tanggal: now.toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'}),
+      waktu:   now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+      timestamp: now.getTime()
+    });
+
+    showToast(`✅ Absensi ${nama} (${stat}) tersimpan!`, 'ok');
+
+    // Auto-sync ke Supabase jika online & dikonfigurasi
+    if (supaClient && navigator.onLine) {
+      setTimeout(() => syncToSupabase(), 800);
+    }
+    document.getElementById('a-nama').value  = '';
+    document.getElementById('a-nis').value   = '';
+    document.getElementById('a-kelas').value = '';
+    document.getElementById('a-status').value= 'Hadir';
+    retakeCam();
+    gpsData = null;
+    document.getElementById('loc-box').className='loc-box';
+    document.getElementById('loc-box').innerHTML='<div class="loc-ico">📡</div><div class="loc-txt"><strong>Belum Ada Lokasi</strong>Tekan tombol di bawah untuk mengambil GPS</div>';
+    document.getElementById('btn-gps').disabled=false;
+    document.getElementById('btn-gps').textContent='📍 Ambil Lokasi GPS';
+  } catch(e) {
+    showToast('❌ Gagal menyimpan: ' + e.message, 'er');
+  }
+
+  setLoading('sub-txt','sub-spin','btn-submit',false,'✅ Simpan Absensi');
+}
+
+// ═══════════════════════════════════════════════════
+//  RIWAYAT
+// ═══════════════════════════════════════════════════
+let allRecords = [];
+
+async function loadRiwayat() {
+  allRecords = (await dbGetAll('absensi')).reverse();
+  renderRecords(allRecords);
+}
+
+function renderRecords(recs) {
+  document.getElementById('s-total').textContent = recs.length;
+  document.getElementById('s-hadir').textContent = recs.filter(r=>r.status==='Hadir').length;
+  document.getElementById('s-izin').textContent  = recs.filter(r=>r.status==='Izin').length;
+  document.getElementById('s-sakit').textContent = recs.filter(r=>r.status==='Sakit').length;
+
+  const list = document.getElementById('rec-list');
+  if (!recs.length) {
+    list.innerHTML = '<div class="empty"><div class="ei">📭</div><p>Belum ada data absensi</p></div>'; return;
+  }
+
+  list.innerHTML = recs.map(r => `
+    <div class="rec">
+      ${r.foto
+        ? `<img class="rec-thumb" src="${r.foto}" alt="foto">`
+        : `<div class="rec-thumb nophoto">👤</div>`}
+      <div class="rec-info">
+        <div class="rec-name">${r.nama}</div>
+        <div class="rec-meta">
+          ${r.nis} · ${r.kelas}<br>
+          🕐 ${r.waktu} · ${r.tanggal.split(',')[0]}<br>
+          📍 ${r.lat?r.lat.toFixed(5):'—'}, ${r.lng?r.lng.toFixed(5):'—'}<br>
+          👤 ${r.adminNama||'—'}
+        </div>
+      </div>
+      <div class="rec-right">
+        <span class="badge ${r.status==='Hadir'?'b-hadir':r.status==='Izin'?'b-izin':'b-sakit'}">${r.status}</span>
+        <button class="del-btn" onclick="delRec(${r.id})">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+function filterRecords(q) {
+  if (!q.trim()) { renderRecords(allRecords); return; }
+  const lq = q.toLowerCase();
+  renderRecords(allRecords.filter(r =>
+    r.nama.toLowerCase().includes(lq) ||
+    r.nis.toLowerCase().includes(lq) ||
+    r.kelas.toLowerCase().includes(lq) ||
+    r.status.toLowerCase().includes(lq)
+  ));
+}
+
+async function delRec(id) {
+  if (!confirm('Hapus data absensi ini?')) return;
+  await dbDelete('absensi', id);
+  loadRiwayat();
+  showToast('🗑 Data dihapus');
+}
+
+async function clearAll() {
+  if (!confirm('HAPUS SEMUA data absensi?\nTindakan ini tidak dapat dibatalkan!')) return;
+  await dbClear('absensi');
+  loadRiwayat();
+  showToast('🗑 Semua data absensi dihapus');
+}
+
+// ═══════════════════════════════════════════════════
+//  EXPORT CSV
+// ═══════════════════════════════════════════════════
+async function exportCSV() {
+  const recs = await dbGetAll('absensi');
+  if (!recs.length) { showToast('⚠️ Tidak ada data untuk diekspor','er'); return; }
+  const hdr = 'No,Nama,NIS,Kelas,Status,Tanggal,Waktu,Latitude,Longitude,Akurasi(m),Dicatat Oleh\n';
+  const rows = recs.map((r,i) =>
+    [i+1, r.nama, r.nis, r.kelas, r.status, r.tanggal, r.waktu,
+     r.lat||'', r.lng||'', Math.round(r.akurasi)||'', r.adminNama||''].map(v => `"${v}"`).join(',')
+  ).join('\n');
+  const blob = new Blob(['\ufeff'+hdr+rows], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Absensi_SMKN1TT_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('📥 CSV berhasil diunduh', 'ok');
+}
+
+// ═══════════════════════════════════════════════════
+//  DB STATS
+// ═══════════════════════════════════════════════════
+async function loadDBStats() {
+  const admins  = await dbGetAll('admins');
+  const absensi = await dbGetAll('absensi');
+  const fotoSize = absensi.reduce((s,r) => s + (r.foto ? r.foto.length * 0.75 : 0), 0);
+  const MB = (fotoSize / 1024 / 1024).toFixed(2);
+
+  let quota = '';
+  if ('storage' in navigator && 'estimate' in navigator.storage) {
+    try {
+      const est = await navigator.storage.estimate();
+      const used  = (est.usage  / 1024 / 1024).toFixed(1);
+      const total = (est.quota  / 1024 / 1024).toFixed(0);
+      quota = `<p>🔹 <strong style="color:var(--white)">Digunakan:</strong> ${used} MB dari ~${total} MB</p>`;
+    } catch {}
+  }
+
+  document.getElementById('db-stats').innerHTML = `
+    <p>🔹 <strong style="color:var(--white)">Jumlah Admin:</strong> ${admins.length} akun</p>
+    <p>🔹 <strong style="color:var(--white)">Total Absensi:</strong> ${absensi.length} record</p>
+    <p>🔹 <strong style="color:var(--white)">Ukuran Foto:</strong> ~${MB} MB</p>
+    ${quota}
+    <p>🔹 <strong style="color:var(--white)">Status:</strong> <span style="color:var(--green)">✅ Database aktif & berjalan</span></p>
+  `;
+}
+
+// ═══════════════════════════════════════════════════
+//  MODAL ADMIN
+// ═══════════════════════════════════════════════════
+function showAdminModal()  { document.getElementById('admin-modal').classList.add('show'); }
+function closeAdminModal() { document.getElementById('admin-modal').classList.remove('show'); }
+
+// ═══════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════
+function showErr(el, msg) {
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 4000);
+}
+
+function setLoading(txtId, spinId, btnId, loading, txt) {
+  document.getElementById(txtId).textContent = txt;
+  document.getElementById(spinId).classList.toggle('on', loading);
+  document.getElementById(btnId).disabled = loading;
+}
+
+let toastT;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.className = 'toast', 3200);
+}
+
+function toggleEye(id, btn) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+// ═══════════════════════════════════════════════════
+//  PWA INSTALL
+// ═══════════════════════════════════════════════════
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredPrompt = e;
+  document.getElementById('install-bar').classList.add('show');
+});
+document.getElementById('btn-install').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') showToast('✅ Aplikasi berhasil dipasang!','ok');
+  deferredPrompt = null;
+  document.getElementById('install-bar').classList.remove('show');
+});
+document.getElementById('install-close').addEventListener('click', () =>
+  document.getElementById('install-bar').classList.remove('show'));
+
+// ═══════════════════════════════════════════════════
+//  KEYBOARD: Enter on login/register
+// ═══════════════════════════════════════════════════
+document.getElementById('l-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('r-pass2').addEventListener('keydown', e => { if(e.key==='Enter') doRegister(); });
+
+// ═══════════════════════════════════════════════════
+//  SERVICE WORKER
+// ═══════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(console.error);
+}
+
+// ─── INIT ───────────────────────────────────────────
+initApp();
+</script>
+</body>
+</html>
