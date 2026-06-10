@@ -3,15 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi PKL • Supabase</title>
+    <title>Absensi PKL • Supabase (Full Offline-First)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+        === INTEGRASI SYNC-MANAGER ===
+        Uncomment baris di bawah ini jika ingin menggunakan IndexedDB + Blob (lebih optimal)
+        <script src="sync-manager.js"></script>
+   
     <link rel="manifest" href="manifest.json">
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; }
         .section { display: none; }
         .section.active { display: block; }
         .nav-tab.active { background-color: #22c55e; color: #0f172a; font-weight: 700; }
+        .status-badge { transition: all 0.2s ease; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200">
@@ -22,11 +28,19 @@
                 <div class="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-xl">📍</div>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight">Absensi PKL</h1>
-                    <p class="text-emerald-400 text-xs -mt-1">Supabase + Offline</p>
+                    <p class="text-emerald-400 text-xs -mt-1">Supabase + Full Offline-First</p>
                 </div>
             </div>
-            <div id="sync-status" class="text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700">
-                Offline
+            <div class="flex items-center gap-x-2">
+                <div id="sync-status" 
+                     class="text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700 flex items-center gap-x-1.5 status-badge">
+                    <span id="sync-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+                    <span id="sync-text">Offline</span>
+                </div>
+                <button onclick="handleSync()" 
+                        class="text-xs px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-full flex items-center gap-x-1.5 font-medium transition-colors">
+                    <span>☁️ Sync</span>
+                </button>
             </div>
         </div>
     </div>
@@ -44,7 +58,7 @@
     <div id="section-dashboard" class="section active max-w-5xl mx-auto px-4 pt-6">
         <div class="mb-6">
             <h2 id="greeting" class="text-3xl font-bold">Halo, Siswa!</h2>
-            <p class="text-emerald-400 text-sm">Siap absen hari ini?</p>
+            <p class="text-emerald-400 text-sm">Data & foto disimpan offline. Otomatis sync saat online.</p>
         </div>
 
         <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 mb-6">
@@ -57,15 +71,22 @@
             </div>
 
             <div id="action-area" class="space-y-3"></div>
+            
+            <div id="pending-info" class="hidden mt-4 p-3 bg-amber-900/30 border border-amber-700 rounded-2xl text-sm">
+                <div class="flex items-center gap-x-2 text-amber-400">
+                    <span>📸</span>
+                    <span id="pending-text">Ada data/foto pending. Tekan Sync untuk mengupload.</span>
+                </div>
+            </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
-            <button onclick="syncToSupabase()" 
-                    class="py-4 bg-emerald-500 text-emerald-950 font-bold rounded-3xl text-lg">
+            <button onclick="handleSync()" 
+                    class="py-4 bg-emerald-500 hover:bg-emerald-600 text-emerald-950 font-bold rounded-3xl text-lg flex items-center justify-center gap-x-2 transition-all active:scale-[0.985]">
                 ☁️ Sync ke Supabase
             </button>
             <button onclick="loadFromSupabase()" 
-                    class="py-4 bg-slate-800 border border-slate-700 font-bold rounded-3xl text-lg">
+                    class="py-4 bg-slate-800 border border-slate-700 hover:bg-slate-700 font-bold rounded-3xl text-lg flex items-center justify-center gap-x-2 transition-all">
                 📥 Ambil dari Cloud
             </button>
         </div>
@@ -73,7 +94,10 @@
 
     <!-- RIWAYAT -->
     <div id="section-riwayat" class="section max-w-5xl mx-auto px-4 pt-6">
-        <h3 class="text-2xl font-bold mb-4">Riwayat Absensi</h3>
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-2xl font-bold">Riwayat Absensi</h3>
+            <button onclick="handleSync()" class="text-xs px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-medium">Sync Sekarang</button>
+        </div>
         <div id="history-list" class="space-y-3"></div>
     </div>
 
@@ -116,7 +140,7 @@
         
         let supabaseClient = null;
         let profile = { nama: "Siswa PKL", nis: "", kelas: "", tempat_pkl: "" };
-        let attendances = [];
+        let attendances = []; // local cache untuk rendering cepat
 
         // ==================== INIT ====================
         function initSupabase() {
@@ -132,93 +156,145 @@
             const savedProfile = localStorage.getItem('pkl_profile');
             if (savedProfile) profile = JSON.parse(savedProfile);
 
-            const savedAttendances = localStorage.getItem('pkl_attendances');
-            if (savedAttendances) attendances = JSON.parse(savedAttendances);
+            // Coba load dari sync-manager jika tersedia
+            if (typeof window.loadAttendanceData === 'function') {
+                window.loadAttendanceData().then(data => {
+                    attendances = data || [];
+                    renderDashboard();
+                    renderHistory();
+                });
+            } else {
+                const savedAttendances = localStorage.getItem('pkl_attendances');
+                if (savedAttendances) attendances = JSON.parse(savedAttendances);
+            }
         }
 
         function saveLocalData() {
             localStorage.setItem('pkl_profile', JSON.stringify(profile));
-            localStorage.setItem('pkl_attendances', JSON.stringify(attendances));
+            // sync-manager sudah handle IndexedDB sendiri
+            if (!window.saveAttendanceOfflineFirst) {
+                localStorage.setItem('pkl_attendances', JSON.stringify(attendances));
+            }
         }
 
-        // ==================== SUPABASE SYNC ====================
+        // ==================== NETWORK STATUS ====================
+        function updateNetworkStatus() {
+            const statusEl = document.getElementById('sync-status');
+            const dot = document.getElementById('sync-dot');
+            const text = document.getElementById('sync-text');
+
+            if (navigator.onLine) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+                text.textContent = 'Online';
+                statusEl.className = 'text-xs px-3 py-1 rounded-full bg-emerald-900/50 border border-emerald-700 flex items-center gap-x-1.5 status-badge';
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+                text.textContent = 'Offline';
+                statusEl.className = 'text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700 flex items-center gap-x-1.5 status-badge';
+            }
+        }
+
+        // ==================== SYNC HANDLER (Hybrid) ====================
+        async function handleSync() {
+            if (typeof window.syncPendingRecords === 'function') {
+                // Gunakan sync-manager (IndexedDB + Blob)
+                const result = await window.syncPendingRecords();
+                alert(result.message || `${result.success} berhasil, ${result.failed} gagal`);
+                await refreshDataFromManager();
+            } else {
+                // Fallback ke metode lama
+                await syncToSupabase();
+            }
+        }
+
+        async function refreshDataFromManager() {
+            if (typeof window.loadAttendanceData === 'function') {
+                attendances = await window.loadAttendanceData();
+                renderDashboard();
+                renderHistory();
+            }
+        }
+
+        // ==================== SUPABASE SYNC (Fallback) ====================
         async function syncToSupabase() {
             if (!supabaseClient) {
                 alert("Supabase belum terhubung");
                 return;
             }
-
-            const unsynced = attendances.filter(a => !a.synced);
-            if (unsynced.length === 0) {
-                alert("Semua data sudah tersinkron");
+            if (!navigator.onLine) {
+                alert("Kamu sedang offline. Data disimpan lokal.");
                 return;
             }
 
+            const unsynced = attendances.filter(a => !a.synced);
+            if (unsynced.length === 0) {
+                alert("Semua data sudah tersinkron.");
+                return;
+            }
+
+            let success = 0, failed = 0;
+
             for (const record of unsynced) {
                 try {
-                    const { error } = await supabaseClient
-                        .from('attendances')
-                        .upsert({
-                            id: record.id,
-                            student_nis: profile.nis,
-                            student_name: profile.nama,
-                            tanggal: record.tanggal,
-                            jam_masuk: record.jam_masuk,
-                            jam_keluar: record.jam_keluar,
-                            lat: record.lat,
-                            lng: record.lng,
-                            status_masuk: record.status_masuk,
-                            photo_url: record.photo_url || null
-                        });
+                    const { error } = await supabaseClient.from('attendances').upsert({
+                        id: record.id,
+                        student_nis: profile.nis,
+                        student_name: profile.nama,
+                        tanggal: record.tanggal,
+                        jam_masuk: record.jam_masuk,
+                        jam_keluar: record.jam_keluar,
+                        lat: record.lat,
+                        lng: record.lng,
+                        status_masuk: record.status_masuk,
+                        photo_url: record.photo_url || null
+                    });
 
                     if (!error) {
                         record.synced = true;
+                        success++;
+                    } else {
+                        failed++;
                     }
                 } catch (e) {
-                    console.error("Sync error:", e);
+                    console.error(e);
+                    failed++;
                 }
             }
 
             saveLocalData();
             renderHistory();
-            alert(`${unsynced.length} data berhasil di-sync ke Supabase!`);
+            alert(`${success} berhasil, ${failed} gagal.`);
         }
 
         async function loadFromSupabase() {
             if (!supabaseClient) return;
 
-            const { data, error } = await supabaseClient
-                .from('attendances')
-                .select('*')
-                .order('tanggal', { ascending: false });
+            try {
+                const { data, error } = await supabaseClient
+                    .from('attendances')
+                    .select('*')
+                    .order('tanggal', { ascending: false });
 
-            if (error) {
-                console.error(error);
-                return;
+                if (error) throw error;
+
+                // Merge sederhana
+                data.forEach(cloudRecord => {
+                    const idx = attendances.findIndex(a => a.id === cloudRecord.id);
+                    if (idx === -1) {
+                        attendances.push({ ...cloudRecord, synced: true });
+                    }
+                });
+
+                saveLocalData();
+                renderHistory();
+                alert("Data berhasil diambil dari Supabase");
+            } catch (e) {
+                console.error(e);
+                alert("Gagal mengambil data dari cloud.");
             }
-
-            // Merge data dari Supabase ke local
-            data.forEach(cloudRecord => {
-                const localIndex = attendances.findIndex(a => a.id === cloudRecord.id);
-                if (localIndex === -1) {
-                    attendances.push({
-                        ...cloudRecord,
-                        synced: true
-                    });
-                } else {
-                    attendances[localIndex] = {
-                        ...cloudRecord,
-                        synced: true
-                    };
-                }
-            });
-
-            saveLocalData();
-            renderHistory();
-            alert("Data berhasil diambil dari Supabase");
         }
 
-        // ==================== PHOTO ====================
+        // ==================== PHOTO + ATTENDANCE (INTEGRASI SYNC-MANAGER) ====================
         async function addPhoto() {
             const record = getTodayRecord();
             if (!record) {
@@ -235,32 +311,63 @@
                 const file = e.target.files[0];
                 if (!file) return;
 
-                if (!supabaseClient) {
-                    alert("Supabase belum siap. Foto disimpan lokal.");
-                    return;
+                // === INTEGRASI DENGAN SYNC-MANAGER ===
+                if (typeof window.saveAttendanceOfflineFirst === 'function') {
+                    // Gunakan IndexedDB + Blob (paling optimal)
+                    try {
+                        await window.saveAttendanceOfflineFirst({
+                            id: record.id,
+                            tanggal: record.tanggal,
+                            jam_masuk: record.jam_masuk,
+                            jam_keluar: record.jam_keluar,
+                            lat: record.lat,
+                            lng: record.lng,
+                            status_masuk: record.status_masuk,
+                            student_nis: profile.nis,
+                            student_name: profile.nama
+                        }, file); // kirim File/Blob langsung
+
+                        alert("Foto & data disimpan offline. Akan diupload otomatis saat sync.");
+                        await refreshDataFromManager();
+                        return;
+                    } catch (err) {
+                        console.error("Gagal simpan via sync-manager:", err);
+                        // fallback ke metode lama
+                    }
                 }
 
-                const fileName = `absen-${record.id}-${Date.now()}.jpg`;
-                const { data, error } = await supabaseClient.storage
-                    .from('photos')
-                    .upload(fileName, file);
+                // === FALLBACK: Metode lama (base64 + localStorage) ===
+                if (navigator.onLine && supabaseClient) {
+                    try {
+                        const fileName = `absen-${record.id}-${Date.now()}.jpg`;
+                        const { data, error } = await supabaseClient.storage.from('photos').upload(fileName, file);
+                        if (error) throw error;
 
-                if (error) {
-                    alert("Gagal upload foto");
-                    return;
+                        const { data: urlData } = supabaseClient.storage.from('photos').getPublicUrl(fileName);
+                        record.photo_url = urlData.publicUrl;
+                        record.synced = false;
+
+                        saveLocalData();
+                        renderDashboard();
+                        renderHistory();
+                        alert("Foto berhasil diupload!");
+                        return;
+                    } catch (err) {
+                        console.warn("Direct upload gagal, fallback ke lokal");
+                    }
                 }
 
-                const { data: urlData } = supabaseClient.storage
-                    .from('photos')
-                    .getPublicUrl(fileName);
-
-                record.photo_url = urlData.publicUrl;
-                record.synced = false;
-
-                saveLocalData();
-                renderDashboard();
-                renderHistory();
-                alert("Foto berhasil diupload ke Supabase Storage!");
+                // Simpan base64 sebagai fallback terakhir
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    record.pending_photo_base64 = ev.target.result;
+                    record.synced = false;
+                    saveLocalData();
+                    renderDashboard();
+                    renderHistory();
+                    alert("Foto disimpan lokal (base64). Akan diupload saat sync.");
+                };
+                reader.readAsDataURL(file);
             };
 
             input.click();
@@ -272,7 +379,7 @@
             return attendances.find(a => a.tanggal === today);
         }
 
-        function doCheckIn() {
+        async function doCheckIn() {
             const today = new Date().toISOString().split('T')[0];
             if (getTodayRecord()) {
                 alert("Sudah absen hari ini");
@@ -280,7 +387,7 @@
             }
 
             const now = new Date();
-            const record = {
+            const recordData = {
                 id: Date.now(),
                 tanggal: today,
                 jam_masuk: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
@@ -292,13 +399,19 @@
                 synced: false
             };
 
-            attendances.unshift(record);
-            saveLocalData();
-            renderDashboard();
-            renderHistory();
+            // === INTEGRASI SYNC-MANAGER ===
+            if (typeof window.saveAttendanceOfflineFirst === 'function') {
+                await window.saveAttendanceOfflineFirst(recordData, null);
+                await refreshDataFromManager();
+            } else {
+                attendances.unshift(recordData);
+                saveLocalData();
+                renderDashboard();
+                renderHistory();
+            }
         }
 
-        function doCheckOut() {
+        async function doCheckOut() {
             const record = getTodayRecord();
             if (!record || record.jam_keluar) return;
 
@@ -306,9 +419,14 @@
             record.jam_keluar = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
             record.synced = false;
 
-            saveLocalData();
-            renderDashboard();
-            renderHistory();
+            if (typeof window.saveAttendanceOfflineFirst === 'function') {
+                await window.saveAttendanceOfflineFirst(record, null);
+                await refreshDataFromManager();
+            } else {
+                saveLocalData();
+                renderDashboard();
+                renderHistory();
+            }
         }
 
         // ==================== RENDER ====================
@@ -316,7 +434,16 @@
             const record = getTodayRecord();
             const statusText = document.getElementById('status-text');
             const actionArea = document.getElementById('action-area');
+            const pendingInfo = document.getElementById('pending-info');
             actionArea.innerHTML = '';
+
+            const hasPending = attendances.some(a => !a.synced || a.pending_photo_base64 || (a.photoBlob && !a.photo_url));
+
+            if (hasPending) {
+                pendingInfo.classList.remove('hidden');
+            } else {
+                pendingInfo.classList.add('hidden');
+            }
 
             if (!record) {
                 statusText.textContent = "Belum Absen Masuk";
@@ -338,7 +465,7 @@
 
         function createButton(text, className, onclick) {
             const btn = document.createElement('button');
-            btn.className = `w-full py-4 font-bold rounded-3xl ${className}`;
+            btn.className = `w-full py-4 font-bold rounded-3xl ${className} transition-all active:scale-[0.985]`;
             btn.textContent = text;
             btn.onclick = onclick;
             return btn;
@@ -356,19 +483,29 @@
             attendances.forEach(record => {
                 const div = document.createElement('div');
                 div.className = 'bg-slate-900 border border-slate-700 rounded-3xl p-5';
+
+                const isPending = !record.synced || record.pending_photo_base64 || (record.photoBlob && !record.photo_url);
+
                 div.innerHTML = `
                     <div class="flex justify-between">
                         <div>
                             <div class="font-semibold">${record.tanggal}</div>
-                            <div class="text-emerald-400 text-sm font-mono">${record.jam_masuk} ${record.jam_keluar ? '→ ' + record.jam_keluar : ''}</div>
+                            <div class="text-emerald-400 text-sm font-mono">
+                                ${record.jam_masuk || ''} ${record.jam_keluar ? '→ ' + record.jam_keluar : ''}
+                            </div>
                         </div>
-                        <div class="text-xs ${record.synced ? 'text-emerald-400' : 'text-amber-400'}">
-                            ${record.synced ? 'SYNCED' : 'BELUM SYNC'}
+                        <div class="text-xs ${isPending ? 'text-amber-400' : 'text-emerald-400'}">
+                            ${isPending ? 'PENDING' : 'SYNCED'}
                         </div>
                     </div>
                     ${record.photo_url ? `
                         <img src="${record.photo_url}" class="mt-3 w-16 h-16 object-cover rounded-2xl border border-slate-600 cursor-pointer" 
                              onclick="showPhoto('${record.photo_url}')">
+                    ` : ''}
+                    ${record.pending_photo_base64 ? `
+                        <div class="mt-2 text-xs text-amber-400 flex items-center gap-x-1">
+                            <span>📸</span> <span>Foto tersimpan lokal (akan diupload)</span>
+                        </div>
                     ` : ''}
                 `;
                 container.appendChild(div);
@@ -380,8 +517,11 @@
             modal.className = 'fixed inset-0 bg-black/90 flex items-center justify-center z-[100]';
             modal.innerHTML = `
                 <div class="max-w-lg w-full p-4">
-                    <img src="${url}" class="w-full rounded-3xl">
-                    <button onclick="this.closest('.fixed').remove()" class="mt-4 w-full py-3 text-white">Tutup</button>
+                    <img src="${url}" class="w-full rounded-3xl shadow-2xl">
+                    <button onclick="this.closest('.fixed').remove()" 
+                            class="mt-4 w-full py-3 bg-slate-800 hover:bg-slate-700 rounded-2xl text-white font-medium">
+                        Tutup
+                    </button>
                 </div>
             `;
             document.body.appendChild(modal);
@@ -402,12 +542,18 @@
         }
 
         function saveProfile() {
-            profile.nama = document.getElementById('nama').value;
-            profile.nis = document.getElementById('nis').value;
-            profile.kelas = document.getElementById('kelas').value;
-            profile.tempat_pkl = document.getElementById('tempat').value;
+            profile.nama = document.getElementById('nama').value.trim();
+            profile.nis = document.getElementById('nis').value.trim();
+            profile.kelas = document.getElementById('kelas').value.trim();
+            profile.tempat_pkl = document.getElementById('tempat').value.trim();
 
             saveLocalData();
+
+            // Update profile ke sync-manager jika aktif
+            if (typeof window.initSyncManager === 'function' && supabaseClient) {
+                window.initSyncManager(supabaseClient, profile);
+            }
+
             document.getElementById('greeting').textContent = `Halo, ${profile.nama || 'Siswa'}!`;
             alert("Profil berhasil disimpan");
         }
@@ -420,18 +566,46 @@
             document.getElementById('tempat').value = profile.tempat_pkl || '';
         }
 
-        function initApp() {
+        // ==================== INIT APP ====================
+        async function initApp() {
             initSupabase();
             loadLocalData();
             updateGreeting();
             renderDashboard();
             renderHistory();
+            updateNetworkStatus();
 
-            // Auto sync when online
-            window.addEventListener('online', () => {
-                console.log("Back online - attempting auto sync...");
-                syncToSupabase();
+            // === INISIALISASI SYNC-MANAGER (jika script tersedia) ===
+            if (typeof window.initSyncManager === 'function' && supabaseClient) {
+                window.initSyncManager(supabaseClient, profile);
+                console.log("%c[App] Sync-Manager diaktifkan", "color:#3ecf8e");
+            } else {
+                console.log("%c[App] Berjalan dalam mode fallback (localStorage + base64)", "color:#f59e0b");
+            }
+
+            // Network listeners
+            window.addEventListener('online', async () => {
+                updateNetworkStatus();
+                if (typeof window.syncPendingRecords === 'function') {
+                    setTimeout(() => window.syncPendingRecords(), 1200);
+                } else {
+                    setTimeout(() => syncToSupabase(), 1200);
+                }
             });
+
+            window.addEventListener('offline', () => {
+                updateNetworkStatus();
+            });
+
+            // Cek pending di awal
+            setTimeout(() => {
+                const hasPending = attendances.some(a => !a.synced || a.pending_photo_base64);
+                if (hasPending && navigator.onLine && typeof window.syncPendingRecords === 'function') {
+                    window.syncPendingRecords();
+                }
+            }, 3000);
+
+            setInterval(updateNetworkStatus, 30000);
         }
 
         window.onload = initApp;
