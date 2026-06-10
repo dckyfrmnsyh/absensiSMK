@@ -1,79 +1,72 @@
 /**
- * sync-manager.js
- * Modul Sinkronisasi Offline-First untuk absensiSMK
- * 
- * Cara pakai:
- * 1. Buat folder /js di project Anda (atau letakkan di root)
- * 2. Tambahkan di index.html: <script src="js/sync-manager.js"></script>
- * 3. Panggil initSyncManager() setelah login berhasil
- * 
- * Fitur:
- * - Simpan ke IndexedDB dulu (dengan photoBlob)
- * - Queue pending records
- * - Auto sync saat online
- * - Manual sync via tombol
- * - Upload foto otomatis saat sync
- * - Hemat storage: hapus photoBlob setelah berhasil sync
+ * sync-manager.js (REVISED untuk absensiSMK)
+ * Modul Sinkronisasi Offline-First yang disesuaikan dengan skema aplikasi saat ini
+ *
+ * Perubahan dari versi asli:
+ * - Sesuaikan dengan tabel `attendances` dan bucket `photos`
+ * - Field names: student_nis, student_name, jam_masuk, jam_keluar, photo_url
+ * - Hilangkan ketergantungan pada tabel `profiles` dan role (kecuali opsional)
+ * - Nama file foto lebih sederhana (absen-{id}-{timestamp}.jpg)
+ * - Lebih ringkas dan mudah diintegrasikan dengan index.html yang sudah diperbaiki
+ * - IndexedDB + real Blob untuk foto (lebih efisien daripada base64)
+ *
+ * Cara pakai (opsional - untuk upgrade):
+ * 1. Letakkan file ini di root proyek
+ * 2. Tambahkan di index.html: <script src="sync-manager.js.revised.js"></script>
+ * 3. Panggil: initSyncManager(supabaseClient, { nis: profile.nis, nama: profile.nama })
+ * 4. Gunakan window.saveAttendanceOfflineFirst() saat check-in/check-out + foto
  */
 
-(function() {
+(function () {
   'use strict';
 
-  let sb = null;           // Supabase client (akan di-inject)
-  let currentUser = null;  // {id, role, nis, ...}
-  let dbName = 'SMKN1TT_v4';
-  let storeName = 'absensi_cache';
+  let sb = null;
+  let currentProfile = null; // { nis, nama, kelas, tempat_pkl }
+  let dbName = 'absensiSMK_offline_v1';
+  let storeName = 'attendances_queue';
 
   // =====================================================
   // INISIALISASI
   // =====================================================
-  window.initSyncManager = function(supabaseClient, user) {
+  window.initSyncManager = function (supabaseClient, profileData) {
     sb = supabaseClient;
-    currentUser = user;
-    
-    // Pastikan IndexedDB sudah siap dengan index sync_status
+    currentProfile = profileData || {};
+
     ensureIndexedDBSchema();
-    
-    // Listener koneksi internet
     initNetworkListeners();
-    
-    // Cek pending records saat startup (jika online)
+
     if (navigator.onLine) {
-      setTimeout(() => syncPendingRecords(), 2000);
+      setTimeout(() => syncPendingRecords(), 1800);
     }
-    
-    console.log('[SyncManager] Initialized for user:', currentUser?.nis || currentUser?.id);
+
+    console.log('%c[SyncManager] Initialized for NIS:', 'color:#3ecf8e', currentProfile.nis || 'unknown');
   };
 
   // =====================================================
-  // HELPER INDEXEDDB (Enhanced)
+  // INDEXEDDB HELPERS
   // =====================================================
   function openDB() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open(dbName, 2); // Version 2 untuk sync_status
-      
+      const req = indexedDB.open(dbName, 1);
+
       req.onupgradeneeded = (e) => {
         const database = e.target.result;
         let store;
-        
+
         if (!database.objectStoreNames.contains(storeName)) {
           store = database.createObjectStore(storeName, { keyPath: 'id' });
         } else {
           store = e.target.transaction.objectStore(storeName);
         }
-        
-        // Pastikan index ada
+
         if (!store.indexNames.contains('sync_status')) {
           store.createIndex('sync_status', 'sync_status', { unique: false });
         }
-        if (!store.indexNames.contains('nis')) {
-          store.createIndex('nis', 'nis', { unique: false });
-        }
-        if (!store.indexNames.contains('timestamp')) {
-          store.createIndex('timestamp', 'timestamp', { unique: false });
+        if (!store.indexNames.contains('tanggal')) {
+          store.createIndex('tanggal', 'tanggal', { unique: false });
         }
       };
-      
+
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
@@ -84,7 +77,7 @@
       const db = await openDB();
       db.close();
     } catch (err) {
-      console.error('[SyncManager] Failed to ensure DB schema:', err);
+      console.error('[SyncManager] IndexedDB schema error:', err);
     }
   }
 
@@ -126,25 +119,35 @@
 
   async function idbGetPending() {
     const all = await idbGetAll();
-    return all.filter(r => 
-      r.sync_status === 'pending' || 
-      (r.photoBlob && !r.foto_url)
+    return all.filter(r =>
+      r.sync_status === 'pending' ||
+      (r.photoBlob && !r.photo_url)
     );
   }
 
+  async function idbDelete(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      const req = store.delete(id);
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+      tx.oncomplete = () => db.close();
+    });
+  }
+
   // =====================================================
-  // UPLOAD FOTO KE SUPABASE STORAGE
+  // UPLOAD FOTO (menggunakan Blob asli)
   // =====================================================
-  async function uploadPhotoToStorage(photoBlob, userId) {
-    if (!sb || !photoBlob || !userId) return null;
+  async function uploadPhotoToStorage(photoBlob, recordId) {
+    if (!sb || !photoBlob) return null;
 
     try {
-      const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(2, 8);
-      const fileName = `${userId}/${timestamp}_${random}.jpg`;
+      const fileName = `absen-${recordId}-${Date.now()}.jpg`;
 
       const { data, error } = await sb.storage
-        .from('foto-absensi')
+        .from('photos')
         .upload(fileName, photoBlob, {
           contentType: 'image/jpeg',
           upsert: false
@@ -153,22 +156,22 @@
       if (error) throw error;
 
       const { data: urlData } = sb.storage
-        .from('foto-absensi')
+        .from('photos')
         .getPublicUrl(fileName);
 
       return urlData.publicUrl;
     } catch (err) {
-      console.error('[SyncManager] Upload photo failed:', err);
+      console.error('[SyncManager] Upload foto gagal:', err);
       throw err;
     }
   }
 
   // =====================================================
-  // SYNC LOGIC
+  // SYNC LOGIC (disesuaikan dengan skema attendances)
   // =====================================================
   async function syncSingleRecord(localId) {
-    if (!sb || !currentUser) {
-      console.warn('[SyncManager] Supabase client or user not ready');
+    if (!sb) {
+      console.warn('[SyncManager] Supabase client belum siap');
       return false;
     }
 
@@ -176,189 +179,135 @@
     if (!record || record.sync_status === 'synced') return true;
 
     try {
-      let foto_url = record.foto_url;
+      let photo_url = record.photo_url;
 
-      // 1. Upload foto jika masih ada Blob dan belum ada URL
-      if (record.photoBlob && !foto_url) {
-        foto_url = await uploadPhotoToStorage(record.photoBlob, record.user_id || currentUser.id);
-        console.log('[SyncManager] Photo uploaded:', foto_url);
+      // 1. Upload foto jika ada Blob dan belum ada URL
+      if (record.photoBlob && !photo_url) {
+        photo_url = await uploadPhotoToStorage(record.photoBlob, record.id);
+        console.log('%c[SyncManager] Foto berhasil diupload:', 'color:#3ecf8e', photo_url);
       }
 
-      // 2. Siapkan payload untuk Supabase (hapus field lokal)
-      const payload = { ...record };
-      delete payload.photoBlob;
-      delete payload.sync_status;
-      delete payload.last_synced;
+      // 2. Siapkan payload sesuai skema aplikasi
+      const payload = {
+        id: record.id,
+        student_nis: record.student_nis || currentProfile.nis || null,
+        student_name: record.student_name || currentProfile.nama || null,
+        tanggal: record.tanggal,
+        jam_masuk: record.jam_masuk,
+        jam_keluar: record.jam_keluar || null,
+        lat: record.lat || null,
+        lng: record.lng || null,
+        status_masuk: record.status_masuk || 'Hadir',
+        photo_url: photo_url || record.photo_url || null
+      };
 
-      payload.foto_url = foto_url;
-      payload.recorded_by = currentUser.id;
-      
-      // Pastikan user_id terisi (penting untuk RLS)
-      if (!payload.user_id && record.nis) {
-        // Fallback: cari user_id dari profiles berdasarkan nis (jika ada)
-        const { data: profile } = await sb
-          .from('profiles')
-          .select('id')
-          .eq('nis', record.nis)
-          .single();
-        if (profile) payload.user_id = profile.id;
-      }
-
-      // 3. Upsert ke Supabase (hindari duplikat)
-      const { data: inserted, error } = await sb
-        .from('absensi')
-        .upsert(payload, { 
-          onConflict: 'nis,tanggal,waktu',
-          ignoreDuplicates: false 
-        })
-        .select()
-        .single();
+      // 3. Upsert ke tabel attendances
+      const { error } = await sb
+        .from('attendances')
+        .upsert(payload);
 
       if (error) throw error;
 
-      // 4. Update local record: hapus Blob, tandai synced
-      const updatedRecord = {
+      // 4. Update local: hapus Blob (hemat storage), tandai synced
+      const updated = {
         ...record,
-        ...inserted,
-        photoBlob: null,           // Hemat storage!
+        photo_url: photo_url,
+        photoBlob: null,
         sync_status: 'synced',
         last_synced: new Date().toISOString()
       };
 
-      await idbPut(updatedRecord);
-      console.log('[SyncManager] Record synced successfully:', localId);
+      await idbPut(updated);
+      console.log('%c[SyncManager] Record synced:', 'color:#3ecf8e', localId);
       return true;
 
     } catch (err) {
-      console.error('[SyncManager] Sync single record failed:', err);
-      // Biarkan tetap pending, akan dicoba lagi nanti
+      console.error('[SyncManager] Gagal sync record:', localId, err);
       return false;
     }
   }
 
-  // Sinkronisasi SEMUA data pending
-  window.syncPendingRecords = async function() {
+  // Sinkronisasi semua data pending
+  window.syncPendingRecords = async function () {
     if (!navigator.onLine) {
-      console.log('[SyncManager] Offline - skip sync');
       return { success: 0, failed: 0, message: 'Offline' };
     }
 
-    const pendingRecords = await idbGetPending();
-    if (pendingRecords.length === 0) {
+    const pending = await idbGetPending();
+    if (pending.length === 0) {
       return { success: 0, failed: 0, message: 'Tidak ada data pending' };
     }
 
     let success = 0;
     let failed = 0;
 
-    for (const rec of pendingRecords) {
+    for (const rec of pending) {
       const ok = await syncSingleRecord(rec.id);
       if (ok) success++;
       else failed++;
     }
 
-    const result = { 
-      success, 
-      failed, 
-      total: pendingRecords.length,
-      message: `${success} berhasil, ${failed} gagal` 
+    const result = {
+      success,
+      failed,
+      total: pending.length,
+      message: `${success} berhasil, ${failed} gagal`
     };
 
-    console.log('[SyncManager] Batch sync result:', result);
+    console.log('[SyncManager] Hasil sync batch:', result);
     return result;
   };
 
   // =====================================================
-  // PUBLIC API - Digunakan dari index.html
+  // PUBLIC API - Untuk dipanggil dari index.html
   // =====================================================
 
-  // Simpan absensi secara offline-first (PANGGIL INI dari submitAbsen)
-  window.saveAttendanceOfflineFirst = async function(record, photoBlob) {
-    if (!record) throw new Error('Record tidak boleh kosong');
+  /**
+   * Simpan absensi + foto secara offline-first
+   * @param {Object} recordData - data absensi (id, tanggal, jam_masuk, dll)
+   * @param {Blob|File|null} photoBlob - foto dari kamera (opsional)
+   */
+  window.saveAttendanceOfflineFirst = async function (recordData, photoBlob = null) {
+    if (!recordData || !recordData.id) {
+      throw new Error('recordData harus memiliki id');
+    }
 
     const localRecord = {
-      ...record,
-      id: record.id || crypto.randomUUID(),
+      ...recordData,
+      student_nis: recordData.student_nis || currentProfile.nis,
+      student_name: recordData.student_name || currentProfile.nama,
       photoBlob: photoBlob || null,
       sync_status: 'pending',
-      timestamp: record.timestamp || Date.now(),
-      created_at: record.created_at || new Date().toISOString()
+      timestamp: Date.now()
     };
 
-    // Selalu simpan ke IndexedDB dulu
     await idbPut(localRecord);
 
-    // Jika online, langsung coba sync
-    if (navigator.onLine && sb && currentUser) {
-      // Jalankan di background agar UI tidak freeze
-      setTimeout(() => syncSingleRecord(localRecord.id), 100);
+    // Jika online, langsung coba sync di background
+    if (navigator.onLine && sb) {
+      setTimeout(() => syncSingleRecord(localRecord.id), 600);
     }
 
     return localRecord.id;
   };
 
-  // Load semua data (untuk rekap/admin & riwayat siswa)
-  // Prioritas: IndexedDB (offline capable) + background refresh dari Supabase
-  window.loadAttendanceData = async function(filter = {}) {
-    // 1. Ambil dari local cache dulu (cepat + offline)
-    let localData = await idbGetAll();
+  /**
+   * Ambil semua data absensi (prioritas IndexedDB)
+   */
+  window.loadAttendanceData = async function () {
+    return await idbGetAll();
+  };
 
-    // Filter berdasarkan role
-    if (currentUser?.role === 'student') {
-      localData = localData.filter(r => 
-        r.user_id === currentUser.id || 
-        (r.nis && r.nis === currentUser.nis)
-      );
-    }
+  /**
+   * Hapus record dari queue (jika perlu)
+   */
+  window.deletePendingRecord = async function (id) {
+    return await idbDelete(id);
+  };
 
-    // Apply filter tambahan (tanggal, nis, dll)
-    if (filter.nis) {
-      localData = localData.filter(r => r.nis === filter.nis);
-    }
-    if (filter.startDate && filter.endDate) {
-      localData = localData.filter(r => {
-        const d = r.tanggal || r.date;
-        return d >= filter.startDate && d <= filter.endDate;
-      });
-    }
-
-    // 2. Background refresh dari Supabase (jika online)
-    if (navigator.onLine && sb && currentUser) {
-      setTimeout(async () => {
-        try {
-          let query = sb.from('absensi').select('*');
-          
-          if (currentUser.role === 'student') {
-            query = query.eq('user_id', currentUser.id);
-          }
-          // Admin dapat semua (RLS sudah handle)
-
-          if (filter.startDate) query = query.gte('tanggal', filter.startDate);
-          if (filter.endDate) query = query.lte('tanggal', filter.endDate);
-
-          const { data: cloudData, error } = await query.order('tanggal', { ascending: false });
-
-          if (!error && cloudData) {
-            // Merge ke IndexedDB
-            for (const cloudRec of cloudData) {
-              const existing = localData.find(l => l.id === cloudRec.id);
-              if (!existing || new Date(cloudRec.last_synced || 0) > new Date(existing.last_synced || 0)) {
-                await idbPut({
-                  ...cloudRec,
-                  photoBlob: null,
-                  sync_status: 'synced'
-                });
-              }
-            }
-            console.log('[SyncManager] Background refresh completed');
-          }
-        } catch (e) {
-          console.warn('[SyncManager] Background refresh failed (non-critical):', e);
-        }
-      }, 500);
-    }
-
-    return localData;
+  window.getPendingCount = async function () {
+    const pending = await idbGetPending();
+    return pending.length;
   };
 
   // =====================================================
@@ -366,42 +315,33 @@
   // =====================================================
   function initNetworkListeners() {
     window.addEventListener('online', () => {
-      console.log('[SyncManager] Connection restored - starting auto sync');
-      if (typeof showToast === 'function') {
-        showToast('Koneksi pulih. Sinkronisasi otomatis dimulai...');
-      }
+      console.log('%c[SyncManager] Koneksi pulih - auto sync dimulai', 'color:#3ecf8e');
       syncPendingRecords();
     });
 
     window.addEventListener('offline', () => {
-      console.log('[SyncManager] Connection lost - working offline');
-      if (typeof showToast === 'function') {
-        showToast('Mode offline aktif. Data akan disimpan lokal.');
-      }
+      console.log('%c[SyncManager] Mode offline aktif', 'color:#f59e0b');
     });
 
-    // Periodic check setiap 5 menit (jika online)
+    // Auto sync berkala setiap 6 menit
     setInterval(() => {
-      if (navigator.onLine) {
+      if (navigator.onLine && sb) {
         syncPendingRecords();
       }
-    }, 5 * 60 * 1000);
+    }, 6 * 60 * 1000);
   }
-
-  // =====================================================
-  // UTILITAS
-  // =====================================================
-  window.getPendingCount = async function() {
-    const pending = await idbGetPending();
-    return pending.length;
-  };
 
   // Expose untuk debugging
   window.debugSyncManager = {
-    getAllLocal: idbGetAll,
+    getAll: idbGetAll,
     getPending: idbGetPending,
-    forceSync: syncPendingRecords
+    forceSync: syncPendingRecords,
+    clearAll: async () => {
+      const all = await idbGetAll();
+      for (const r of all) await idbDelete(r.id);
+      console.log('[SyncManager] Semua data lokal dihapus');
+    }
   };
 
-  console.log('[SyncManager] Module loaded. Call initSyncManager(sb, currentUser) after login.');
+  console.log('%c[SyncManager] Module loaded. Panggil initSyncManager(sb, profile) untuk mengaktifkan.', 'color:#64748b');
 })();
