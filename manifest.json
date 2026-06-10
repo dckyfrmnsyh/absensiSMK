@@ -1,17 +1,26 @@
 {
-  "name": "Absensi SMKN 1 Tana Tidung",
-  "short_name": "Absensi",
-  "description": "Aplikasi absensi siswa SMK Negeri 1 Tana Tidung",
-  "start_url": "./index.html",
+  "name": "Absensi PKL Siswa - PWA Offline",
+  "short_name": "AbsenPKL",
+  "description": "Aplikasi Absensi Praktik Kerja Lapangan Siswa. Bisa offline, rekam lokasi GPS, sync otomatis. Built with chaos & love 🔥",
+  "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#0a1628",
-  "theme_color": "#0a1628",
   "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#22c55e",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%230a1628' rx='32'/><text x='96' y='130' font-size='100' text-anchor='middle'>🏫</text></svg>",
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "id-ID"
 }
