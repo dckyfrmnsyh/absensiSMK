@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi PKL • Supabase (Full Offline-First)</title>
+    <title>Absensi PKL • Supabase (Offline-First)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-        === INTEGRASI SYNC-MANAGER ===
-        Uncomment baris di bawah ini jika ingin menggunakan IndexedDB + Blob (lebih optimal)
+    
+        <!-- === INTEGRASI SYNC-MANAGER (OPSIONAL) ===
+        Untuk performa terbaik (IndexedDB + Blob asli), uncomment baris di bawah: -->
         <script src="sync-manager.js"></script>
    
+    
     <link rel="manifest" href="manifest.json">
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; }
         .section { display: none; }
         .section.active { display: block; }
         .nav-tab.active { background-color: #22c55e; color: #0f172a; font-weight: 700; }
-        .status-badge { transition: all 0.2s ease; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200">
@@ -28,12 +29,12 @@
                 <div class="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-xl">📍</div>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight">Absensi PKL</h1>
-                    <p class="text-emerald-400 text-xs -mt-1">Supabase + Full Offline-First</p>
+                    <p class="text-emerald-400 text-xs -mt-1">Supabase + Offline-First</p>
                 </div>
             </div>
             <div class="flex items-center gap-x-2">
                 <div id="sync-status" 
-                     class="text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700 flex items-center gap-x-1.5 status-badge">
+                     class="text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700 flex items-center gap-x-1.5">
                     <span id="sync-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
                     <span id="sync-text">Offline</span>
                 </div>
@@ -82,7 +83,7 @@
 
         <div class="grid grid-cols-2 gap-3">
             <button onclick="handleSync()" 
-                    class="py-4 bg-emerald-500 hover:bg-emerald-600 text-emerald-950 font-bold rounded-3xl text-lg flex items-center justify-center gap-x-2 transition-all active:scale-[0.985]">
+                    class="py-4 bg-emerald-500 hover:bg-emerald-600 text-emerald-950 font-bold rounded-3xl text-lg flex items-center justify-center gap-x-2 transition-all">
                 ☁️ Sync ke Supabase
             </button>
             <button onclick="loadFromSupabase()" 
@@ -140,7 +141,14 @@
         
         let supabaseClient = null;
         let profile = { nama: "Siswa PKL", nis: "", kelas: "", tempat_pkl: "" };
-        let attendances = []; // local cache untuk rendering cepat
+        let attendances = [];
+
+        // ==================== HELPER: Format Waktu yang Benar ====================
+        function formatTime(date) {
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            return `${hours}:${minutes}`; // Selalu menghasilkan "13:03"
+        }
 
         // ==================== INIT ====================
         function initSupabase() {
@@ -156,7 +164,6 @@
             const savedProfile = localStorage.getItem('pkl_profile');
             if (savedProfile) profile = JSON.parse(savedProfile);
 
-            // Coba load dari sync-manager jika tersedia
             if (typeof window.loadAttendanceData === 'function') {
                 window.loadAttendanceData().then(data => {
                     attendances = data || [];
@@ -171,7 +178,6 @@
 
         function saveLocalData() {
             localStorage.setItem('pkl_profile', JSON.stringify(profile));
-            // sync-manager sudah handle IndexedDB sendiri
             if (!window.saveAttendanceOfflineFirst) {
                 localStorage.setItem('pkl_attendances', JSON.stringify(attendances));
             }
@@ -186,43 +192,36 @@
             if (navigator.onLine) {
                 dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
                 text.textContent = 'Online';
-                statusEl.className = 'text-xs px-3 py-1 rounded-full bg-emerald-900/50 border border-emerald-700 flex items-center gap-x-1.5 status-badge';
+                statusEl.className = 'text-xs px-3 py-1 rounded-full bg-emerald-900/50 border border-emerald-700 flex items-center gap-x-1.5';
             } else {
                 dot.className = 'w-2 h-2 rounded-full bg-amber-400';
                 text.textContent = 'Offline';
-                statusEl.className = 'text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700 flex items-center gap-x-1.5 status-badge';
+                statusEl.className = 'text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700 flex items-center gap-x-1.5';
             }
         }
 
-        // ==================== SYNC HANDLER (Hybrid) ====================
+        // ==================== SYNC HANDLER ====================
         async function handleSync() {
             if (typeof window.syncPendingRecords === 'function') {
-                // Gunakan sync-manager (IndexedDB + Blob)
                 const result = await window.syncPendingRecords();
                 alert(result.message || `${result.success} berhasil, ${result.failed} gagal`);
-                await refreshDataFromManager();
+                if (typeof window.loadAttendanceData === 'function') {
+                    attendances = await window.loadAttendanceData();
+                    renderDashboard();
+                    renderHistory();
+                }
             } else {
-                // Fallback ke metode lama
                 await syncToSupabase();
             }
         }
 
-        async function refreshDataFromManager() {
-            if (typeof window.loadAttendanceData === 'function') {
-                attendances = await window.loadAttendanceData();
-                renderDashboard();
-                renderHistory();
-            }
-        }
-
-        // ==================== SUPABASE SYNC (Fallback) ====================
         async function syncToSupabase() {
             if (!supabaseClient) {
                 alert("Supabase belum terhubung");
                 return;
             }
             if (!navigator.onLine) {
-                alert("Kamu sedang offline. Data disimpan lokal.");
+                alert("Kamu sedang offline.");
                 return;
             }
 
@@ -277,7 +276,6 @@
 
                 if (error) throw error;
 
-                // Merge sederhana
                 data.forEach(cloudRecord => {
                     const idx = attendances.findIndex(a => a.id === cloudRecord.id);
                     if (idx === -1) {
@@ -294,7 +292,7 @@
             }
         }
 
-        // ==================== PHOTO + ATTENDANCE (INTEGRASI SYNC-MANAGER) ====================
+        // ==================== PHOTO + ATTENDANCE ====================
         async function addPhoto() {
             const record = getTodayRecord();
             if (!record) {
@@ -311,9 +309,8 @@
                 const file = e.target.files[0];
                 if (!file) return;
 
-                // === INTEGRASI DENGAN SYNC-MANAGER ===
+                // Gunakan sync-manager jika tersedia
                 if (typeof window.saveAttendanceOfflineFirst === 'function') {
-                    // Gunakan IndexedDB + Blob (paling optimal)
                     try {
                         await window.saveAttendanceOfflineFirst({
                             id: record.id,
@@ -325,18 +322,21 @@
                             status_masuk: record.status_masuk,
                             student_nis: profile.nis,
                             student_name: profile.nama
-                        }, file); // kirim File/Blob langsung
+                        }, file);
 
-                        alert("Foto & data disimpan offline. Akan diupload otomatis saat sync.");
-                        await refreshDataFromManager();
+                        alert("Foto & data disimpan offline. Akan diupload saat sync.");
+                        if (typeof window.loadAttendanceData === 'function') {
+                            attendances = await window.loadAttendanceData();
+                            renderDashboard();
+                            renderHistory();
+                        }
                         return;
                     } catch (err) {
-                        console.error("Gagal simpan via sync-manager:", err);
-                        // fallback ke metode lama
+                        console.error(err);
                     }
                 }
 
-                // === FALLBACK: Metode lama (base64 + localStorage) ===
+                // Fallback
                 if (navigator.onLine && supabaseClient) {
                     try {
                         const fileName = `absen-${record.id}-${Date.now()}.jpg`;
@@ -353,11 +353,11 @@
                         alert("Foto berhasil diupload!");
                         return;
                     } catch (err) {
-                        console.warn("Direct upload gagal, fallback ke lokal");
+                        console.warn("Direct upload gagal");
                     }
                 }
 
-                // Simpan base64 sebagai fallback terakhir
+                // Base64 fallback
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     record.pending_photo_base64 = ev.target.result;
@@ -365,7 +365,7 @@
                     saveLocalData();
                     renderDashboard();
                     renderHistory();
-                    alert("Foto disimpan lokal (base64). Akan diupload saat sync.");
+                    alert("Foto disimpan lokal. Akan diupload saat sync.");
                 };
                 reader.readAsDataURL(file);
             };
@@ -390,7 +390,7 @@
             const recordData = {
                 id: Date.now(),
                 tanggal: today,
-                jam_masuk: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+                jam_masuk: formatTime(now),
                 jam_keluar: null,
                 lat: null,
                 lng: null,
@@ -399,16 +399,18 @@
                 synced: false
             };
 
-            // === INTEGRASI SYNC-MANAGER ===
             if (typeof window.saveAttendanceOfflineFirst === 'function') {
                 await window.saveAttendanceOfflineFirst(recordData, null);
-                await refreshDataFromManager();
+                if (typeof window.loadAttendanceData === 'function') {
+                    attendances = await window.loadAttendanceData();
+                }
             } else {
                 attendances.unshift(recordData);
-                saveLocalData();
-                renderDashboard();
-                renderHistory();
             }
+
+            saveLocalData();
+            renderDashboard();
+            renderHistory();
         }
 
         async function doCheckOut() {
@@ -416,17 +418,19 @@
             if (!record || record.jam_keluar) return;
 
             const now = new Date();
-            record.jam_keluar = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            record.jam_keluar = formatTime(now);
             record.synced = false;
 
             if (typeof window.saveAttendanceOfflineFirst === 'function') {
                 await window.saveAttendanceOfflineFirst(record, null);
-                await refreshDataFromManager();
-            } else {
-                saveLocalData();
-                renderDashboard();
-                renderHistory();
+                if (typeof window.loadAttendanceData === 'function') {
+                    attendances = await window.loadAttendanceData();
+                }
             }
+
+            saveLocalData();
+            renderDashboard();
+            renderHistory();
         }
 
         // ==================== RENDER ====================
@@ -437,7 +441,7 @@
             const pendingInfo = document.getElementById('pending-info');
             actionArea.innerHTML = '';
 
-            const hasPending = attendances.some(a => !a.synced || a.pending_photo_base64 || (a.photoBlob && !a.photo_url));
+            const hasPending = attendances.some(a => !a.synced || a.pending_photo_base64);
 
             if (hasPending) {
                 pendingInfo.classList.remove('hidden');
@@ -484,7 +488,7 @@
                 const div = document.createElement('div');
                 div.className = 'bg-slate-900 border border-slate-700 rounded-3xl p-5';
 
-                const isPending = !record.synced || record.pending_photo_base64 || (record.photoBlob && !record.photo_url);
+                const isPending = !record.synced || record.pending_photo_base64;
 
                 div.innerHTML = `
                     <div class="flex justify-between">
@@ -504,7 +508,7 @@
                     ` : ''}
                     ${record.pending_photo_base64 ? `
                         <div class="mt-2 text-xs text-amber-400 flex items-center gap-x-1">
-                            <span>📸</span> <span>Foto tersimpan lokal (akan diupload)</span>
+                            <span>📸</span> <span>Foto tersimpan lokal</span>
                         </div>
                     ` : ''}
                 `;
@@ -517,11 +521,8 @@
             modal.className = 'fixed inset-0 bg-black/90 flex items-center justify-center z-[100]';
             modal.innerHTML = `
                 <div class="max-w-lg w-full p-4">
-                    <img src="${url}" class="w-full rounded-3xl shadow-2xl">
-                    <button onclick="this.closest('.fixed').remove()" 
-                            class="mt-4 w-full py-3 bg-slate-800 hover:bg-slate-700 rounded-2xl text-white font-medium">
-                        Tutup
-                    </button>
+                    <img src="${url}" class="w-full rounded-3xl">
+                    <button onclick="this.closest('.fixed').remove()" class="mt-4 w-full py-3 bg-slate-800 rounded-2xl text-white">Tutup</button>
                 </div>
             `;
             document.body.appendChild(modal);
@@ -549,7 +550,6 @@
 
             saveLocalData();
 
-            // Update profile ke sync-manager jika aktif
             if (typeof window.initSyncManager === 'function' && supabaseClient) {
                 window.initSyncManager(supabaseClient, profile);
             }
@@ -575,35 +575,21 @@
             renderHistory();
             updateNetworkStatus();
 
-            // === INISIALISASI SYNC-MANAGER (jika script tersedia) ===
+            // Inisialisasi Sync-Manager jika tersedia
             if (typeof window.initSyncManager === 'function' && supabaseClient) {
                 window.initSyncManager(supabaseClient, profile);
-                console.log("%c[App] Sync-Manager diaktifkan", "color:#3ecf8e");
-            } else {
-                console.log("%c[App] Berjalan dalam mode fallback (localStorage + base64)", "color:#f59e0b");
+                console.log("%c[App] Sync-Manager aktif", "color:#3ecf8e");
             }
 
             // Network listeners
-            window.addEventListener('online', async () => {
+            window.addEventListener('online', () => {
                 updateNetworkStatus();
                 if (typeof window.syncPendingRecords === 'function') {
-                    setTimeout(() => window.syncPendingRecords(), 1200);
-                } else {
-                    setTimeout(() => syncToSupabase(), 1200);
+                    setTimeout(() => window.syncPendingRecords(), 1000);
                 }
             });
 
-            window.addEventListener('offline', () => {
-                updateNetworkStatus();
-            });
-
-            // Cek pending di awal
-            setTimeout(() => {
-                const hasPending = attendances.some(a => !a.synced || a.pending_photo_base64);
-                if (hasPending && navigator.onLine && typeof window.syncPendingRecords === 'function') {
-                    window.syncPendingRecords();
-                }
-            }, 3000);
+            window.addEventListener('offline', updateNetworkStatus);
 
             setInterval(updateNetworkStatus, 30000);
         }
