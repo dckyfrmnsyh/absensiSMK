@@ -390,7 +390,11 @@
             const recordData = {
                 id: Date.now(),
                 tanggal: today,
-                jam_masuk: formatTime(now),
+                jam_masuk: now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    hour12: false 
+                }).replace('.', ':'),
                 jam_keluar: null,
                 lat: null,
                 lng: null,
@@ -418,7 +422,9 @@
             if (!record || record.jam_keluar) return;
 
             const now = new Date();
-            record.jam_keluar = formatTime(now);
+            // GANTI DENGAN INI:
+            const pad = n => n.toString().padStart(2, '0');
+            record.jam_keluar = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
             record.synced = false;
 
             if (typeof window.saveAttendanceOfflineFirst === 'function') {
