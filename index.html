@@ -3,798 +3,438 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi SMK • Secure</title>
-    <meta name="description" content="Sistem Absensi Siswa SMK - Aman &amp; Offline First">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1e40af">
-    
+    <title>Absensi PKL • Supabase</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+    <link rel="manifest" href="manifest.json">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Poppins:wght@500;600&amp;display=swap');
-        
-        body { font-family: 'Inter', system_ui, sans-serif; }
-        
-        .screen { display: none; }
-        .screen.active { display: block; }
-
-        .nav-tab {
-            transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
-            position: relative;
-        }
-        .nav-tab.active {
-            background-color: #1e40af;
-            color: white;
-            font-weight: 600;
-        }
-        .nav-tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background-color: #1e40af;
-        }
-
-        .attendance-card {
-            transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
-        }
-        .attendance-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-        }
-
-        .status-hadir { background-color: #dcfce7; color: #166534; font-weight: 500; }
-        .status-izin { background-color: #fef3c7; color: #92400e; font-weight: 500; }
-        .status-sakit { background-color: #dbeafe; color: #1e40af; font-weight: 500; }
-        .status-alpha { background-color: #fee2e2; color: #991b1b; font-weight: 500; }
-
-        .camera-container {
-            background: #0f172a;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.3);
-        }
-
-        .section-header {
-            font-weight: 700;
-            letter-spacing: -0.03em;
-            color: #0f172a;
-        }
-
-        .form-input {
-            transition: all 0.2s ease;
-        }
-        .form-input:focus {
-            border-color: #1e40af;
-            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
-            outline: none;
-        }
-
-        .modern-card {
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .section { display: none; }
+        .section.active { display: block; }
+        .nav-tab.active { background-color: #22c55e; color: #0f172a; font-weight: 700; }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800">
-
-    <!-- Offline Banner -->
-    <div id="offline-banner" class="hidden bg-gradient-to-r from-amber-500 to-orange-500 text-white text-center py-2.5 text-sm font-medium shadow">
-        <div class="flex items-center justify-center gap-x-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 9.238a9 9 0 01-9.238-2.167" />
-            </svg>
-            <span class="font-semibold">Mode Offline Aktif</span>
-            <span class="text-amber-100">• Data disimpan lokal</span>
-        </div>
-    </div>
-
-    <!-- ==================== SCREEN: LOADING ==================== -->
-    <div id="screen-loading" class="screen active min-h-screen flex items-center justify-center bg-slate-900">
-        <div class="text-center">
-            <div class="w-16 h-16 mx-auto mb-5 border-[5px] border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p class="text-white text-xl font-semibold tracking-tight">Memuat Absensi SMK</p>
-            <p class="text-slate-400 text-sm mt-1.5">Versi Aman • Offline First</p>
-        </div>
-    </div>
-
-    <!-- ==================== SCREEN: LOGIN ==================== -->
-    <div id="screen-login" class="screen min-h-screen flex items-center justify-center p-6 bg-slate-900">
-        <div class="w-full max-w-md">
-            <!-- Logo & Header -->
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-3xl shadow-xl mb-5 ring-1 ring-slate-200">
-                    <span class="text-4xl">🏫</span>
-                </div>
-                <h1 class="text-5xl font-bold text-white tracking-tighter">Absensi SMK</h1>
-                <p class="text-blue-300 mt-2 text-lg">Sistem Kehadiran Aman</p>
-            </div>
-
-            <div class="bg-white rounded-3xl shadow-2xl p-8 modern-card">
-                <!-- Role Selection -->
-                <div class="flex bg-slate-100 rounded-2xl p-1 mb-7">
-                    <button onclick="switchLoginRole('admin')" id="tab-admin"
-                            class="flex-1 py-3 text-sm font-semibold rounded-2xl transition-all active">Admin / Guru</button>
-                    <button onclick="switchLoginRole('student')" id="tab-student"
-                            class="flex-1 py-3 text-sm font-semibold rounded-2xl transition-all text-slate-500">Siswa</button>
-                </div>
-
-                <div class="space-y-5">
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
-                        <input id="login-email" type="email" placeholder="admin@smk.sch.id atau email siswa"
-                               class="form-input w-full px-4 py-3.5 border border-slate-300 rounded-2xl text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
-                        <input id="login-password" type="password" placeholder="••••••••"
-                               class="form-input w-full px-4 py-3.5 border border-slate-300 rounded-2xl text-sm">
-                    </div>
-                </div>
-
-                <button onclick="doLogin()" 
-                        class="mt-7 w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-all text-white font-bold py-4 rounded-2xl text-base shadow-lg shadow-blue-500/40">
-                    Masuk ke Sistem
-                </button>
-
-                <div class="mt-6 text-center">
-                    <p class="text-xs text-slate-400 leading-relaxed">
-                        Akun admin hanya dibuat melalui<br>
-                        <span class="font-semibold text-blue-600">Supabase Dashboard → Authentication</span>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ==================== SCREEN: APP (ADMIN) ==================== -->
-    <div id="screen-app" class="screen">
-        <!-- Header -->
-        <div class="bg-white border-b sticky top-0 z-50 shadow-sm">
-            <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
-                <div class="flex items-center gap-x-4">
-                    <div class="w-11 h-11 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow">A</div>
-                    <div>
-                        <div class="font-bold text-2xl tracking-tighter">Absensi SMK</div>
-                        <div class="text-xs text-slate-500 -mt-0.5" id="admin-welcome">Administrator</div>
-                    </div>
-                </div>
-                
-                <div class="flex items-center gap-x-3">
-                    <!-- Sync Button -->
-                    <div onclick="manualSync()" 
-                         class="flex items-center gap-x-2.5 px-5 py-2 bg-slate-100 hover:bg-slate-200 transition-all rounded-3xl cursor-pointer text-sm border">
-                        <div class="flex items-center gap-x-2">
-                            <div id="sync-indicator" class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                            <span id="sync-text" class="font-semibold text-slate-700 text-xs tracking-wide">SINKRON</span>
-                        </div>
-                        <span id="pending-count" class="bg-white text-xs font-mono font-bold px-2.5 py-0.5 rounded-2xl border">0</span>
-                    </div>
-                    
-                    <button onclick="doLogout()" 
-                            class="px-5 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-3xl transition-all flex items-center gap-x-2 border border-red-100">
-                        <span>Keluar</span>
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Tabs -->
-            <div class="max-w-7xl mx-auto px-6 border-t">
-                <div class="flex -mb-px">
-                    <button onclick="switchTab('absen')" id="tab-absen"
-                            class="nav-tab active px-8 py-4 text-sm font-semibold text-slate-700 rounded-t-2xl">Catat Absensi</button>
-                    <button onclick="switchTab('rekap')" id="tab-rekap"
-                            class="nav-tab px-8 py-4 text-sm font-semibold text-slate-600 rounded-t-2xl">Rekap Data</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="max-w-7xl mx-auto px-6 py-8">
-            
-            <!-- TAB: CATAT ABSENSI -->
-            <div id="content-absen" class="tab-content">
-                <div class="max-w-2xl">
-                    <div class="mb-6">
-                        <h2 class="section-header text-3xl">Catat Absensi Baru</h2>
-                        <p class="text-slate-500 mt-1">Data otomatis tersimpan lokal jika sedang offline</p>
-                    </div>
-
-                    <div class="bg-white rounded-3xl shadow modern-card p-8 space-y-7">
-                        <!-- Form -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                                <label class="block text-sm font-semibold text-slate-700 mb-2">Nama Siswa</label>
-                                <input id="absen-nama" class="form-input w-full px-4 py-3.5 border border-slate-300 rounded-2xl text-sm" placeholder="Nama lengkap siswa">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-slate-700 mb-2">NIS</label>
-                                <input id="absen-nis" class="form-input w-full px-4 py-3.5 border border-slate-300 rounded-2xl text-sm" placeholder="Nomor Induk Siswa">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-slate-700 mb-2">Kelas</label>
-                                <input id="absen-kelas" class="form-input w-full px-4 py-3.5 border border-slate-300 rounded-2xl text-sm" placeholder="X RPL 1">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-slate-700 mb-2">Status Kehadiran</label>
-                                <select id="absen-status" class="form-input w-full px-4 py-3.5 border border-slate-300 rounded-2xl bg-white text-sm">
-                                    <option value="hadir">Hadir</option>
-                                    <option value="izin">Izin</option>
-                                    <option value="sakit">Sakit</option>
-                                    <option value="alpha">Alpha</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Camera Section -->
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-3">Foto Selfie Siswa</label>
-                            <div id="camera-area" class="camera-container relative aspect-video flex items-center justify-center rounded-3xl overflow-hidden border border-slate-700">
-                                <video id="video" class="hidden w-full h-full object-cover" autoplay playsinline></video>
-                                <canvas id="canvas" class="hidden"></canvas>
-                                
-                                <div id="camera-placeholder" class="text-center px-6">
-                                    <div class="mx-auto w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-3">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2m0 0 2 2m-2-2v10a1 1 0 01-1 1H5a1 1 0 01-1-1V9z" />
-                                        </svg>
-                                    </div>
-                                    <p class="text-white/70 text-sm">Tekan tombol di bawah untuk membuka kamera</p>
-                                </div>
-                            </div>
-                            
-                            <div class="flex gap-3 mt-4">
-                                <button onclick="startCam()" id="btn-start-cam"
-                                        class="flex-1 py-3.5 bg-slate-800 hover:bg-slate-900 transition text-white text-sm font-semibold rounded-2xl">Buka Kamera</button>
-                                <button onclick="snapPhoto()" id="btn-snap"
-                                        class="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 transition text-white text-sm font-semibold rounded-2xl hidden">Ambil Foto</button>
-                                <button onclick="retakeCam()" id="btn-retake"
-                                        class="flex-1 py-3.5 border border-slate-300 hover:bg-slate-50 transition text-sm font-semibold rounded-2xl hidden">Ambil Ulang</button>
-                            </div>
-                        </div>
-
-                        <!-- GPS -->
-                        <div class="flex items-center justify-between bg-slate-50 border border-slate-200 p-4 rounded-2xl">
-                            <div>
-                                <div class="font-semibold text-sm">Lokasi GPS</div>
-                                <div id="gps-status" class="text-xs text-slate-500 mt-0.5">Belum diambil</div>
-                            </div>
-                            <button onclick="getGPS()" 
-                                    class="px-6 py-2.5 bg-white border border-slate-300 text-sm font-semibold rounded-2xl hover:bg-slate-100 active:bg-slate-200 transition">Ambil Lokasi</button>
-                        </div>
-
-                        <button onclick="submitAbsen()" 
-                                class="w-full mt-2 py-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-lg rounded-3xl transition-all shadow-lg shadow-blue-500/30">
-                            Simpan Absensi
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB: REKAP -->
-            <div id="content-rekap" class="tab-content hidden">
-                <div class="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 class="section-header text-3xl">Rekap Absensi</h2>
-                        <p class="text-slate-500">Data gabungan dari perangkat lokal dan cloud</p>
-                    </div>
-                    <button onclick="loadRekapData()" 
-                            class="px-6 py-3 bg-white border text-sm font-semibold rounded-2xl flex items-center gap-x-2 hover:bg-slate-50 active:bg-slate-100 transition">
-                        <span>Muat Ulang Data</span>
-                    </button>
-                </div>
-                
-                <div id="rekap-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <!-- Data dirender via JavaScript -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ==================== SCREEN: SISWA ==================== -->
-    <div id="screen-siswa" class="screen">
-        <div class="max-w-4xl mx-auto px-6 py-8">
-            <div class="flex justify-between items-start mb-8">
+<body class="bg-slate-950 text-slate-200">
+    <!-- Header -->
+    <div class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-x-3">
+                <div class="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-xl">📍</div>
                 <div>
-                    <h1 class="text-4xl font-bold tracking-tighter" id="siswa-name">Halo, Siswa</h1>
-                    <p class="text-slate-500 mt-1" id="siswa-info">Lihat riwayat kehadiran Anda</p>
+                    <h1 class="text-2xl font-bold tracking-tight">Absensi PKL</h1>
+                    <p class="text-emerald-400 text-xs -mt-1">Supabase + Offline</p>
                 </div>
-                <button onclick="doLogout()" class="px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-2xl border border-red-100 transition">Keluar</button>
             </div>
-
-            <div class="bg-white rounded-3xl shadow modern-card p-8">
-                <h3 class="font-bold text-xl mb-5">Riwayat Absensi</h3>
-                <div id="siswa-riwayat" class="divide-y text-sm">
-                    <!-- Data dirender via JavaScript -->
-                </div>
+            <div id="sync-status" class="text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700">
+                Offline
             </div>
         </div>
     </div>
 
-    <!-- Toast Notification -->
-    <div id="toast" onclick="this.style.display='none'"
-         class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3.5 rounded-3xl text-sm shadow-2xl flex items-center gap-x-2 cursor-pointer">
-        <span id="toast-text"></span>
+    <!-- Tabs -->
+    <div class="max-w-5xl mx-auto px-4 pt-4">
+        <div class="flex bg-slate-900 rounded-3xl p-1 border border-slate-800">
+            <button onclick="showSection('dashboard')" class="nav-tab flex-1 py-3 text-sm font-bold rounded-3xl active bg-emerald-500 text-slate-900" id="tab-dashboard">Dashboard</button>
+            <button onclick="showSection('riwayat')" class="nav-tab flex-1 py-3 text-sm font-bold rounded-3xl text-slate-400" id="tab-riwayat">Riwayat</button>
+            <button onclick="showSection('profil')" class="nav-tab flex-1 py-3 text-sm font-bold rounded-3xl text-slate-400" id="tab-profil">Profil</button>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="section-dashboard" class="section active max-w-5xl mx-auto px-4 pt-6">
+        <div class="mb-6">
+            <h2 id="greeting" class="text-3xl font-bold">Halo, Siswa!</h2>
+            <p class="text-emerald-400 text-sm">Siap absen hari ini?</p>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 mb-6">
+            <div class="flex justify-between mb-4">
+                <div>
+                    <div class="text-xs text-emerald-400">STATUS HARI INI</div>
+                    <div id="status-text" class="text-2xl font-bold">Belum Absen</div>
+                </div>
+                <div id="status-icon" class="text-5xl">😴</div>
+            </div>
+
+            <div id="action-area" class="space-y-3"></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="syncToSupabase()" 
+                    class="py-4 bg-emerald-500 text-emerald-950 font-bold rounded-3xl text-lg">
+                ☁️ Sync ke Supabase
+            </button>
+            <button onclick="loadFromSupabase()" 
+                    class="py-4 bg-slate-800 border border-slate-700 font-bold rounded-3xl text-lg">
+                📥 Ambil dari Cloud
+            </button>
+        </div>
+    </div>
+
+    <!-- RIWAYAT -->
+    <div id="section-riwayat" class="section max-w-5xl mx-auto px-4 pt-6">
+        <h3 class="text-2xl font-bold mb-4">Riwayat Absensi</h3>
+        <div id="history-list" class="space-y-3"></div>
+    </div>
+
+    <!-- PROFIL -->
+    <div id="section-profil" class="section max-w-5xl mx-auto px-4 pt-6">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6">
+            <h3 class="text-xl font-bold mb-6">Profil Siswa</h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-emerald-400">NAMA LENGKAP</label>
+                    <input id="nama" class="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 mt-1">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-emerald-400">NIS</label>
+                        <input id="nis" class="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 mt-1">
+                    </div>
+                    <div>
+                        <label class="text-xs text-emerald-400">KELAS</label>
+                        <input id="kelas" class="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 mt-1">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-emerald-400">TEMPAT PKL</label>
+                    <input id="tempat" class="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 mt-1">
+                </div>
+            </div>
+
+            <button onclick="saveProfile()" class="mt-6 w-full py-4 bg-emerald-500 text-emerald-950 font-bold rounded-3xl">
+                Simpan Profil
+            </button>
+        </div>
     </div>
 
     <script>
-        // ==================== GLOBAL ====================
-        let sb = null;
-        let currentUser = null;
-        let currentRole = 'admin';
-        let gpsData = null;
-        let photoBlob = null;
-        let videoStream = null;
+        // ==================== SUPABASE CONFIG ====================
+        const SUPABASE_URL = 'https://hqoiqoqdqzkkssgoqhpj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhxb2lxb3FkcXpra3NzZ29xaHBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNTQ4MzcsImV4cCI6MjA5NjYzMDgzN30.8KRYBV-t47ca08Q8G4yqn3bfVLPFEE9PDIrtAfbpVnE';
+        
+        let supabaseClient = null;
+        let profile = { nama: "Siswa PKL", nis: "", kelas: "", tempat_pkl: "" };
+        let attendances = [];
 
-        // HARDCODE SUPABASE (Ganti dengan milik Anda)
-        const SUPABASE_URL = "https://wkhnaybsyptplptqvmni.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndraG5heWJzeXB0cGxwdHF2bW5pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NDkxOTIsImV4cCI6MjA5NTIyNTE5Mn0.ee0u-O5v1eEoONbHUL3vrRpxNLS3r4quJyXNWhzc6n0";
-
-        function initSB() {
-            if (SUPABASE_URL.includes("YOUR_PROJECT_ID")) {
-                alert("Silakan ganti SUPABASE_URL dan SUPABASE_ANON_KEY di index.html terlebih dahulu.");
-                return false;
+        // ==================== INIT ====================
+        function initSupabase() {
+            if (typeof window.supabase === 'undefined') {
+                console.error("Supabase library not loaded");
+                return;
             }
-            sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            return true;
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log("%c[Supabase] Connected", "color:#3ecf8e");
         }
 
-        // ==================== SCREEN & UI ====================
-        function showScreen(id) {
-            // Pastikan hanya satu screen yang aktif
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            
-            const target = document.getElementById(id);
-            if (target) {
-                target.classList.add('active');
-            } else {
-                console.warn('Screen tidak ditemukan:', id);
-            }
+        function loadLocalData() {
+            const savedProfile = localStorage.getItem('pkl_profile');
+            if (savedProfile) profile = JSON.parse(savedProfile);
+
+            const savedAttendances = localStorage.getItem('pkl_attendances');
+            if (savedAttendances) attendances = JSON.parse(savedAttendances);
         }
 
-        function switchLoginRole(role) {
-            currentRole = role;
-            const tabA = document.getElementById('tab-admin');
-            const tabS = document.getElementById('tab-student');
-            
-            if (role === 'admin') {
-                tabA.classList.add('active', 'bg-blue-600', 'text-white');
-                tabA.classList.remove('text-slate-500');
-                tabS.classList.remove('active', 'bg-blue-600', 'text-white');
-                tabS.classList.add('text-slate-500');
-            } else {
-                tabS.classList.add('active', 'bg-blue-600', 'text-white');
-                tabS.classList.remove('text-slate-500');
-                tabA.classList.remove('active', 'bg-blue-600', 'text-white');
-                tabA.classList.add('text-slate-500');
-            }
+        function saveLocalData() {
+            localStorage.setItem('pkl_profile', JSON.stringify(profile));
+            localStorage.setItem('pkl_attendances', JSON.stringify(attendances));
         }
 
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.getElementById('content-' + tab).classList.remove('hidden');
-
-            document.querySelectorAll('[id^="tab-"]').forEach(el => {
-                el.classList.remove('active', 'bg-blue-600', 'text-white');
-                el.classList.add('text-slate-600');
-            });
-            const activeTab = document.getElementById('tab-' + tab);
-            activeTab.classList.add('active', 'bg-blue-600', 'text-white');
-            activeTab.classList.remove('text-slate-600');
-
-            if (tab === 'rekap') loadRekapData();
-        }
-
-        // ==================== AUTH ====================
-        async function doLogin() {
-            const email = document.getElementById('login-email').value.trim();
-            const password = document.getElementById('login-password').value;
-
-            if (!email || !password) {
-                showToast('Email dan password wajib diisi');
+        // ==================== SUPABASE SYNC ====================
+        async function syncToSupabase() {
+            if (!supabaseClient) {
+                alert("Supabase belum terhubung");
                 return;
             }
 
-            try {
-                const { data, error } = await sb.auth.signInWithPassword({ email, password });
-                if (error) throw error;
+            const unsynced = attendances.filter(a => !a.synced);
+            if (unsynced.length === 0) {
+                alert("Semua data sudah tersinkron");
+                return;
+            }
 
-                const { data: profile } = await sb.from('profiles').select('*').eq('id', data.user.id).single();
-                currentUser = profile ? { ...data.user, ...profile } : { ...data.user, role: 'student' };
+            for (const record of unsynced) {
+                try {
+                    const { error } = await supabaseClient
+                        .from('attendances')
+                        .upsert({
+                            id: record.id,
+                            student_nis: profile.nis,
+                            student_name: profile.nama,
+                            tanggal: record.tanggal,
+                            jam_masuk: record.jam_masuk,
+                            jam_keluar: record.jam_keluar,
+                            lat: record.lat,
+                            lng: record.lng,
+                            status_masuk: record.status_masuk,
+                            photo_url: record.photo_url || null
+                        });
 
-                if (typeof initSyncManager === 'function') {
-                    initSyncManager(sb, currentUser);
+                    if (!error) {
+                        record.synced = true;
+                    }
+                } catch (e) {
+                    console.error("Sync error:", e);
                 }
+            }
 
-                showToast('Login berhasil');
+            saveLocalData();
+            renderHistory();
+            alert(`${unsynced.length} data berhasil di-sync ke Supabase!`);
+        }
 
-                if (currentUser.role === 'admin') {
-                    showScreen('screen-app');
-                    document.getElementById('admin-welcome').innerText = currentUser.full_name || 'Administrator';
-                    switchTab('absen');
+        async function loadFromSupabase() {
+            if (!supabaseClient) return;
+
+            const { data, error } = await supabaseClient
+                .from('attendances')
+                .select('*')
+                .order('tanggal', { ascending: false });
+
+            if (error) {
+                console.error(error);
+                return;
+            }
+
+            // Merge data dari Supabase ke local
+            data.forEach(cloudRecord => {
+                const localIndex = attendances.findIndex(a => a.id === cloudRecord.id);
+                if (localIndex === -1) {
+                    attendances.push({
+                        ...cloudRecord,
+                        synced: true
+                    });
                 } else {
-                    showScreen('screen-siswa');
-                    document.getElementById('siswa-name').innerText = `Halo, ${currentUser.full_name || 'Siswa'}`;
-                    document.getElementById('siswa-info').innerText = `NIS: ${currentUser.nis || ''}`;
-                    loadSiswaRiwayat();
+                    attendances[localIndex] = {
+                        ...cloudRecord,
+                        synced: true
+                    };
                 }
-                updatePendingCount();
+            });
 
-            } catch (err) {
-                showToast('Login gagal: ' + err.message);
-            }
+            saveLocalData();
+            renderHistory();
+            alert("Data berhasil diambil dari Supabase");
         }
 
-        async function doLogout() {
-            await sb.auth.signOut();
-            currentUser = null;
-            showScreen('screen-login');
-            showToast('Anda telah keluar dari sistem');
-        }
-
-        // ==================== CAMERA ====================
-        function startCam() {
-            const video = document.getElementById('video');
-            const placeholder = document.getElementById('camera-placeholder');
-            const btnStart = document.getElementById('btn-start-cam');
-            const btnSnap = document.getElementById('btn-snap');
-
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-                .then(stream => {
-                    videoStream = stream;
-                    video.srcObject = stream;
-                    video.classList.remove('hidden');
-                    placeholder.classList.add('hidden');
-                    btnStart.classList.add('hidden');
-                    btnSnap.classList.remove('hidden');
-                })
-                .catch(() => showToast('Tidak dapat mengakses kamera'));
-        }
-
-        function snapPhoto() {
-            const video = document.getElementById('video');
-            const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
-
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0);
-
-            canvas.toBlob(blob => {
-                photoBlob = blob;
-                showToast('Foto berhasil diambil');
-
-                const img = document.createElement('img');
-                img.src = URL.createObjectURL(blob);
-                img.className = 'w-full h-full object-cover';
-
-                const container = document.getElementById('camera-area');
-                container.innerHTML = '';
-                container.appendChild(img);
-
-                document.getElementById('btn-snap').classList.add('hidden');
-                document.getElementById('btn-retake').classList.remove('hidden');
-
-                if (videoStream) videoStream.getTracks().forEach(track => track.stop());
-            }, 'image/jpeg', 0.9);
-        }
-
-        function retakeCam() {
-            const container = document.getElementById('camera-area');
-            container.innerHTML = `
-                <video id="video" class="hidden w-full h-full object-cover" autoplay playsinline></video>
-                <canvas id="canvas" class="hidden"></canvas>
-                <div id="camera-placeholder" class="text-center px-6">
-                    <div class="mx-auto w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2m0 0 2 2m-2-2v10a1 1 0 01-1 1H5a1 1 0 01-1-1V9z" />
-                        </svg>
-                    </div>
-                    <p class="text-white/70 text-sm">Tekan tombol di bawah untuk membuka kamera</p>
-                </div>
-            `;
-            document.getElementById('btn-retake').classList.add('hidden');
-            document.getElementById('btn-start-cam').classList.remove('hidden');
-            photoBlob = null;
-        }
-
-        // ==================== GPS ====================
-        function getGPS() {
-            const statusEl = document.getElementById('gps-status');
-            if (!navigator.geolocation) {
-                statusEl.innerText = 'Perangkat tidak mendukung GPS';
+        // ==================== PHOTO ====================
+        async function addPhoto() {
+            const record = getTodayRecord();
+            if (!record) {
+                alert("Absen dulu baru bisa tambah foto");
                 return;
             }
 
-            statusEl.innerText = 'Mengambil lokasi...';
-            navigator.geolocation.getCurrentPosition(position => {
-                gpsData = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude,
-                    acc: position.coords.accuracy
-                };
-                statusEl.innerHTML = `✓ ${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`;
-                statusEl.classList.add('text-emerald-600', 'font-medium');
-            }, error => {
-                statusEl.innerText = 'Gagal mengambil lokasi';
-            }, { enableHighAccuracy: true, timeout: 10000 });
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'environment';
+
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                if (!supabaseClient) {
+                    alert("Supabase belum siap. Foto disimpan lokal.");
+                    return;
+                }
+
+                const fileName = `absen-${record.id}-${Date.now()}.jpg`;
+                const { data, error } = await supabaseClient.storage
+                    .from('photos')
+                    .upload(fileName, file);
+
+                if (error) {
+                    alert("Gagal upload foto");
+                    return;
+                }
+
+                const { data: urlData } = supabaseClient.storage
+                    .from('photos')
+                    .getPublicUrl(fileName);
+
+                record.photo_url = urlData.publicUrl;
+                record.synced = false;
+
+                saveLocalData();
+                renderDashboard();
+                renderHistory();
+                alert("Foto berhasil diupload ke Supabase Storage!");
+            };
+
+            input.click();
         }
 
-        // ==================== SUBMIT ABSENSI ====================
-        async function submitAbsen() {
-            const nama = document.getElementById('absen-nama').value.trim();
-            const nis = document.getElementById('absen-nis').value.trim();
-            const kelas = document.getElementById('absen-kelas').value.trim();
-            const status = document.getElementById('absen-status').value;
+        // ==================== ATTENDANCE ====================
+        function getTodayRecord() {
+            const today = new Date().toISOString().split('T')[0];
+            return attendances.find(a => a.tanggal === today);
+        }
 
-            if (!nama || !nis || !kelas || !photoBlob) {
-                showToast('Mohon lengkapi semua data dan ambil foto');
+        function doCheckIn() {
+            const today = new Date().toISOString().split('T')[0];
+            if (getTodayRecord()) {
+                alert("Sudah absen hari ini");
                 return;
             }
 
             const now = new Date();
             const record = {
-                nama: nama,
-                nis: nis,
-                kelas: kelas,
-                status: status,
-                tanggal: now.toISOString().split('T')[0],
-                waktu: now.toTimeString().split(' ')[0],
-                lat: gpsData ? gpsData.lat : null,
-                lng: gpsData ? gpsData.lng : null,
-                timestamp: now.getTime()
+                id: Date.now(),
+                tanggal: today,
+                jam_masuk: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+                jam_keluar: null,
+                lat: null,
+                lng: null,
+                status_masuk: "Hadir",
+                photo_url: null,
+                synced: false
             };
 
-            try {
-                if (typeof saveAttendanceOfflineFirst === 'function') {
-                    await saveAttendanceOfflineFirst(record, photoBlob);
-                } else {
-                    await sb.from('absensi').insert(record);
-                }
-
-                showToast('Absensi berhasil disimpan');
-                resetForm();
-                updatePendingCount();
-
-            } catch (error) {
-                showToast('Gagal menyimpan data: ' + error.message);
-            }
+            attendances.unshift(record);
+            saveLocalData();
+            renderDashboard();
+            renderHistory();
         }
 
-        function resetForm() {
-            document.getElementById('absen-nama').value = '';
-            document.getElementById('absen-nis').value = '';
-            document.getElementById('absen-kelas').value = '';
-            document.getElementById('absen-status').value = 'hadir';
+        function doCheckOut() {
+            const record = getTodayRecord();
+            if (!record || record.jam_keluar) return;
 
-            const container = document.getElementById('camera-area');
-            container.innerHTML = `
-                <video id="video" class="hidden w-full h-full object-cover" autoplay playsinline></video>
-                <canvas id="canvas" class="hidden"></canvas>
-                <div id="camera-placeholder" class="text-center px-6">
-                    <div class="mx-auto w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2m0 0 2 2m-2-2v10a1 1 0 01-1 1H5a1 1 0 01-1-1V9z" />
-                        </svg>
-                    </div>
-                    <p class="text-white/70 text-sm">Tekan tombol di bawah untuk membuka kamera</p>
-                </div>
-            `;
+            const now = new Date();
+            record.jam_keluar = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            record.synced = false;
 
-            document.getElementById('btn-start-cam').classList.remove('hidden');
-            document.getElementById('btn-snap').classList.add('hidden');
-            document.getElementById('btn-retake').classList.add('hidden');
-
-            gpsData = null;
-            photoBlob = null;
-            const gpsStatus = document.getElementById('gps-status');
-            gpsStatus.innerText = 'Belum diambil';
-            gpsStatus.classList.remove('text-emerald-600', 'font-medium');
+            saveLocalData();
+            renderDashboard();
+            renderHistory();
         }
 
-        // ==================== LOAD DATA ====================
-        async function loadRekapData() {
-            const container = document.getElementById('rekap-list');
-            container.innerHTML = `<div class="col-span-full py-10 text-center text-slate-400">Memuat data absensi...</div>`;
+        // ==================== RENDER ====================
+        function renderDashboard() {
+            const record = getTodayRecord();
+            const statusText = document.getElementById('status-text');
+            const actionArea = document.getElementById('action-area');
+            actionArea.innerHTML = '';
 
-            try {
-                let data = [];
-                if (typeof loadAttendanceData === 'function') {
-                    data = await loadAttendanceData();
-                } else {
-                    const { data: supaData } = await sb.from('absensi').select('*').order('tanggal', { ascending: false });
-                    data = supaData || [];
-                }
+            if (!record) {
+                statusText.textContent = "Belum Absen Masuk";
+                const btn = createButton("📍 Absen Masuk", "bg-emerald-500 text-emerald-950", doCheckIn);
+                actionArea.appendChild(btn);
+            } else if (!record.jam_keluar) {
+                statusText.textContent = "Sedang Bekerja";
+                const btnOut = createButton("🛑 Absen Keluar", "bg-rose-500 text-white", doCheckOut);
+                actionArea.appendChild(btnOut);
 
-                container.innerHTML = '';
-
-                if (data.length === 0) {
-                    container.innerHTML = `<div class="col-span-full py-10 text-center text-slate-400">Belum ada data absensi.</div>`;
-                    return;
-                }
-
-                data.forEach(item => {
-                    const card = document.createElement('div');
-                    card.className = `attendance-card bg-white border border-slate-200 rounded-3xl p-6 modern-card`;
-                    
-                    const statusClass = {
-                        'hadir': 'status-hadir',
-                        'izin': 'status-izin',
-                        'sakit': 'status-sakit',
-                        'alpha': 'status-alpha'
-                    }[item.status] || 'bg-slate-100 text-slate-600';
-
-                    card.innerHTML = `
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <div class="font-bold text-lg">${item.nama}</div>
-                                <div class="text-sm text-slate-500">${item.nis} • ${item.kelas}</div>
-                            </div>
-                            <div class="px-4 py-1.5 text-xs font-bold rounded-2xl ${statusClass}">
-                                ${item.status.toUpperCase()}
-                            </div>
-                        </div>
-                        <div class="mt-4 text-sm text-slate-600">
-                            ${item.tanggal} &nbsp;•&nbsp; ${item.waktu}
-                        </div>
-                        ${item.foto_url ? `
-                            <div class="mt-4">
-                                <img src="${item.foto_url}" class="w-20 h-20 object-cover rounded-2xl border border-slate-200" alt="Foto Absensi">
-                            </div>
-                        ` : ''}
-                    `;
-                    container.appendChild(card);
-                });
-            } catch (err) {
-                container.innerHTML = `<div class="col-span-full py-8 text-center text-red-500">Gagal memuat data</div>`;
-            }
-        }
-
-        async function loadSiswaRiwayat() {
-            const container = document.getElementById('siswa-riwayat');
-            container.innerHTML = `<div class="py-6 text-center text-slate-400">Memuat riwayat absensi...</div>`;
-
-            try {
-                let data = [];
-                if (typeof loadAttendanceData === 'function') {
-                    data = await loadAttendanceData();
-                } else {
-                    const { data: supaData } = await sb.from('absensi')
-                        .select('*')
-                        .eq('nis', currentUser.nis)
-                        .order('tanggal', { ascending: false });
-                    data = supaData || [];
-                }
-
-                container.innerHTML = '';
-
-                if (data.length === 0) {
-                    container.innerHTML = `<p class="py-6 text-center text-slate-400">Anda belum memiliki riwayat absensi.</p>`;
-                    return;
-                }
-
-                data.forEach(item => {
-                    const row = document.createElement('div');
-                    row.className = 'flex justify-between items-center py-4 border-b last:border-none';
-                    row.innerHTML = `
-                        <div>
-                            <div class="font-semibold">${item.tanggal}</div>
-                            <div class="text-xs text-slate-500">${item.waktu}</div>
-                        </div>
-                        <div class="px-5 py-1.5 text-xs font-bold rounded-2xl ${{
-                            'hadir': 'status-hadir',
-                            'izin': 'status-izin',
-                            'sakit': 'status-sakit',
-                            'alpha': 'status-alpha'
-                        }[item.status] || 'bg-slate-100'}">
-                            ${item.status.toUpperCase()}
-                        </div>
-                    `;
-                    container.appendChild(row);
-                });
-            } catch (err) {
-                container.innerHTML = `<p class="py-6 text-center text-red-500">Gagal memuat data</p>`;
-            }
-        }
-
-        // ==================== SYNC ====================
-        function updatePendingCount() {
-            if (typeof getPendingCount !== 'function') return;
-            getPendingCount().then(count => {
-                const el = document.getElementById('pending-count');
-                if (el) el.innerText = count || '0';
-            });
-        }
-
-        function manualSync() {
-            if (typeof syncPendingRecords === 'function') {
-                syncPendingRecords().then(result => {
-                    showToast(result.message || 'Sinkronisasi selesai');
-                    updatePendingCount();
-                });
+                const btnPhoto = createButton(record.photo_url ? "📸 Ganti Foto" : "📸 Tambah Foto", "bg-slate-800", addPhoto);
+                actionArea.appendChild(btnPhoto);
             } else {
-                showToast('Fungsi sinkronisasi belum siap');
+                statusText.textContent = "Sudah Pulang";
+                const btnPhoto = createButton(record.photo_url ? "📸 Ganti Foto" : "📸 Tambah Foto", "bg-slate-800", addPhoto);
+                actionArea.appendChild(btnPhoto);
             }
         }
 
-        function initNetworkListeners() {
-            const banner = document.getElementById('offline-banner');
-            
-            function updateBanner() {
-                banner.classList.toggle('hidden', navigator.onLine);
-            }
-
-            window.addEventListener('online', () => {
-                updateBanner();
-                if (typeof syncPendingRecords === 'function') syncPendingRecords();
-            });
-            
-            window.addEventListener('offline', updateBanner);
-            updateBanner();
-
-            setInterval(updatePendingCount, 15000);
+        function createButton(text, className, onclick) {
+            const btn = document.createElement('button');
+            btn.className = `w-full py-4 font-bold rounded-3xl ${className}`;
+            btn.textContent = text;
+            btn.onclick = onclick;
+            return btn;
         }
 
-        // ==================== INITIALIZATION ====================
-        function initializeApp() {
-            // Selalu mulai dengan loading screen
-            showScreen('screen-loading');
+        function renderHistory() {
+            const container = document.getElementById('history-list');
+            container.innerHTML = '';
 
-            if (!initSB()) {
-                // Jika credentials belum diisi, tetap tampilkan loading + alert
+            if (attendances.length === 0) {
+                container.innerHTML = `<p class="text-center text-slate-400 py-8">Belum ada data absensi</p>`;
                 return;
             }
 
-            sb.auth.getSession().then(({ data }) => {
-                if (data.session) {
-                    sb.from('profiles').select('*').eq('id', data.session.user.id).single().then(({ data: profile }) => {
-                        currentUser = profile ? { ...data.session.user, ...profile } : data.session.user;
+            attendances.forEach(record => {
+                const div = document.createElement('div');
+                div.className = 'bg-slate-900 border border-slate-700 rounded-3xl p-5';
+                div.innerHTML = `
+                    <div class="flex justify-between">
+                        <div>
+                            <div class="font-semibold">${record.tanggal}</div>
+                            <div class="text-emerald-400 text-sm font-mono">${record.jam_masuk} ${record.jam_keluar ? '→ ' + record.jam_keluar : ''}</div>
+                        </div>
+                        <div class="text-xs ${record.synced ? 'text-emerald-400' : 'text-amber-400'}">
+                            ${record.synced ? 'SYNCED' : 'BELUM SYNC'}
+                        </div>
+                    </div>
+                    ${record.photo_url ? `
+                        <img src="${record.photo_url}" class="mt-3 w-16 h-16 object-cover rounded-2xl border border-slate-600 cursor-pointer" 
+                             onclick="showPhoto('${record.photo_url}')">
+                    ` : ''}
+                `;
+                container.appendChild(div);
+            });
+        }
 
-                        if (typeof initSyncManager === 'function') {
-                            initSyncManager(sb, currentUser);
-                        }
+        function showPhoto(url) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/90 flex items-center justify-center z-[100]';
+            modal.innerHTML = `
+                <div class="max-w-lg w-full p-4">
+                    <img src="${url}" class="w-full rounded-3xl">
+                    <button onclick="this.closest('.fixed').remove()" class="mt-4 w-full py-3 text-white">Tutup</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
 
-                        if (currentUser.role === 'admin') {
-                            showScreen('screen-app');
-                            document.getElementById('admin-welcome').innerText = currentUser.full_name || 'Administrator';
-                            switchTab('absen');
-                        } else {
-                            showScreen('screen-siswa');
-                            document.getElementById('siswa-name').innerText = `Halo, ${currentUser.full_name || 'Siswa'}`;
-                            loadSiswaRiwayat();
-                        }
-                        updatePendingCount();
-                    });
-                } else {
-                    // Tidak ada session → tampilkan login
-                    showScreen('screen-login');
+        function showSection(section) {
+            document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+            document.getElementById(`section-${section}`).classList.add('active');
+
+            document.querySelectorAll('[id^="tab-"]').forEach(tab => {
+                tab.classList.remove('active', 'bg-emerald-500', 'text-slate-900');
+                if (tab.id === `tab-${section}`) {
+                    tab.classList.add('active', 'bg-emerald-500', 'text-slate-900');
                 }
-            }).catch(() => {
-                // Jika ada error, tetap tampilkan login
-                showScreen('screen-login');
             });
 
-            initNetworkListeners();
-            switchLoginRole('admin');
+            if (section === 'riwayat') renderHistory();
         }
 
-        window.onload = initializeApp;
+        function saveProfile() {
+            profile.nama = document.getElementById('nama').value;
+            profile.nis = document.getElementById('nis').value;
+            profile.kelas = document.getElementById('kelas').value;
+            profile.tempat_pkl = document.getElementById('tempat').value;
 
-        // Toast
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            document.getElementById('toast-text').innerText = message;
-            toast.style.display = 'flex';
-            setTimeout(() => {
-                toast.style.display = 'none';
-            }, 3000);
+            saveLocalData();
+            document.getElementById('greeting').textContent = `Halo, ${profile.nama || 'Siswa'}!`;
+            alert("Profil berhasil disimpan");
         }
 
-        window.debugApp = () => ({ currentUser, sb });
+        function updateGreeting() {
+            document.getElementById('greeting').textContent = `Halo, ${profile.nama || 'Siswa'}!`;
+            document.getElementById('nama').value = profile.nama || '';
+            document.getElementById('nis').value = profile.nis || '';
+            document.getElementById('kelas').value = profile.kelas || '';
+            document.getElementById('tempat').value = profile.tempat_pkl || '';
+        }
+
+        function initApp() {
+            initSupabase();
+            loadLocalData();
+            updateGreeting();
+            renderDashboard();
+            renderHistory();
+
+            // Auto sync when online
+            window.addEventListener('online', () => {
+                console.log("Back online - attempting auto sync...");
+                syncToSupabase();
+            });
+        }
+
+        window.onload = initApp;
     </script>
-
-    <!-- Sync Manager -->
-    <script src="sync-manager.js"></script>
 </body>
 </html>
