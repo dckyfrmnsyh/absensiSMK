@@ -3,22 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi PKL • Supabase (Maks 5MB Foto + Lokasi)</title>
+    <title>Absensi PKL • SMKN1TANATIDUNG</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <!-- Untuk performa terbaik (opsional) -->
     <script src="sync-manager.js"></script>
-    
     <link rel="manifest" href="manifest.json">
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; }
         .section { display: none; }
         .section.active { display: block; }
         .nav-tab.active { background-color: #22c55e; color: #0f172a; font-weight: 700; }
+        .toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 9999; padding: 12px 24px; border-radius: 9999px;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            max-width: 90%; text-align: center; font-weight: 500;
+        }
+        .toast-success { background-color: #166534; color: white; }
+        .toast-warning { background-color: #854d0e; color: white; }
+        .toast-error { background-color: #991b1b; color: white; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200">
+    <!-- Toast -->
+    <div id="toast-container" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[9999]"></div>
+
     <!-- Header -->
     <div class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
         <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -30,12 +39,25 @@
                 </div>
             </div>
             <div class="flex items-center gap-x-2">
+                <!-- Admin Status -->
+                <div id="admin-status" class="hidden items-center gap-x-2 text-xs px-3 py-1 rounded-full bg-emerald-900/50 border border-emerald-700">
+                    <span class="text-emerald-400">👑 Admin</span>
+                    <button onclick="logoutAdmin()" class="text-emerald-300 hover:text-white">Logout</button>
+                </div>
+                
                 <div id="sync-status" class="text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700 flex items-center gap-x-1.5">
                     <span id="sync-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
                     <span id="sync-text">Offline</span>
                 </div>
+                
                 <button onclick="handleSync()" class="text-xs px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-full flex items-center gap-x-1.5 font-medium transition-colors">
                     <span>☁️ Sync</span>
+                </button>
+                
+                <!-- Admin Login Button -->
+                <button onclick="showAdminLogin()" id="btn-admin-login"
+                        class="text-xs px-4 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-full font-medium transition-colors">
+                    Login Admin
                 </button>
             </div>
         </div>
@@ -47,13 +69,11 @@
             <button onclick="showSection('dashboard')" class="nav-tab flex-1 py-3 text-sm font-bold rounded-3xl active bg-emerald-500 text-slate-900" id="tab-dashboard">Dashboard</button>
             <button onclick="showSection('riwayat')" class="nav-tab flex-1 py-3 text-sm font-bold rounded-3xl text-slate-400" id="tab-riwayat">Riwayat</button>
             <button onclick="showSection('profil')" class="nav-tab flex-1 py-3 text-sm font-bold rounded-3xl text-slate-400" id="tab-profil">Profil</button>
-            <button onclick="showAdminSection()" 
-        class="nav-tab flex-1 py-3 text-sm font-bold rounded-3xl text-slate-400" 
-        id="tab-admin">Admin</button>
+            <button onclick="showAdminSection()" class="nav-tab flex-1 py-3 text-sm font-bold rounded-3xl text-slate-400" id="tab-admin">Admin</button>
         </div>
     </div>
 
-    <!-- DASHBOARD -->
+    <!-- DASHBOARD (Student) -->
     <div id="section-dashboard" class="section active max-w-5xl mx-auto px-4 pt-6">
         <div class="mb-6">
             <h2 id="greeting" class="text-3xl font-bold">Halo, Siswa!</h2>
@@ -73,7 +93,7 @@
             <div id="pending-info" class="hidden mt-4 p-3 bg-amber-900/30 border border-amber-700 rounded-2xl text-sm">
                 <div class="flex items-center gap-x-2 text-amber-400">
                     <span>📸</span>
-                    <span id="pending-text">Ada data/foto pending. Tekan Sync.</span>
+                    <span id="pending-text">Ada data pending. Tekan Sync.</span>
                 </div>
             </div>
         </div>
@@ -128,14 +148,59 @@
             </button>
         </div>
     </div>
+
+    <!-- ADMIN SECTION -->
+    <div id="section-admin" class="section max-w-5xl mx-auto px-4 pt-6">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h3 class="text-2xl font-bold">Panel Admin</h3>
+                <p class="text-emerald-400 text-sm">Data absensi seluruh siswa</p>
+            </div>
+            <div class="flex gap-x-2">
+                <button onclick="loadAllAttendanceData()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-2xl text-sm font-medium">
+                    🔄 Muat Ulang
+                </button>
+                <button onclick="exportToCSV()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-2xl text-sm font-medium">
+                    📥 Export CSV
+                </button>
+            </div>
+        </div>
+
+        <div class="mb-4 flex gap-x-3">
+            <input type="text" id="admin-search" placeholder="Cari nama atau NIS..." 
+                   class="flex-1 bg-slate-900 border border-slate-700 rounded-2xl px-4 py-2 text-sm"
+                   onkeyup="filterAdminData()">
+            
+            <input type="date" id="admin-date-filter" 
+                   class="bg-slate-900 border border-slate-700 rounded-2xl px-4 py-2 text-sm"
+                   onchange="filterAdminData()">
+        </div>
+
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-800">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Tanggal</th>
+                        <th class="px-4 py-3 text-left">Nama</th>
+                        <th class="px-4 py-3 text-left">NIS / Kelas</th>
+                        <th class="px-4 py-3 text-left">Jam</th>
+                        <th class="px-4 py-3 text-left">Lokasi</th>
+                        <th class="px-4 py-3 text-left">Foto</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- ADMIN LOGIN MODAL -->
     <div id="admin-login-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[999]">
-        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-8 w-full max-w-md">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-8 w-full max-w-md mx-4">
             <h3 class="text-xl font-bold mb-6">Login Admin</h3>
             
             <div class="space-y-4">
                 <div>
-                    <label class="text-xs text-emerald-400">EMAIL</label>
+                    <label class="text-xs text-emerald-400">EMAIL ADMIN</label>
                     <input id="admin-email" type="email" value="admin@sekolah.sch.id"
                            class="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 mt-1">
                 </div>
@@ -145,7 +210,7 @@
                            class="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 mt-1">
                 </div>
             </div>
-    
+
             <div class="flex gap-x-3 mt-6">
                 <button onclick="loginAsAdmin()" 
                         class="flex-1 py-3 bg-emerald-500 text-emerald-950 font-bold rounded-3xl">
@@ -156,8 +221,14 @@
                     Batal
                 </button>
             </div>
+            
+            <p class="text-xs text-slate-500 mt-4 text-center">
+                Default: admin@sekolah.sch.id / admin123<br>
+                (Buat user admin di Supabase Authentication)
+            </p>
         </div>
     </div>
+
     <script>
         // ==================== SUPABASE CONFIG ====================
         const SUPABASE_URL = 'https://hqoiqoqdqzkkssgoqhpj.supabase.co';
@@ -166,6 +237,32 @@
         let supabaseClient = null;
         let profile = { nama: "Siswa PKL", nis: "", kelas: "", tempat_pkl: "" };
         let attendances = [];
+        
+        // Auth State
+        let currentUser = null;
+        let isAdmin = false;
+        let allAdminData = [];
+
+        // ==================== TOAST ====================
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            let bgClass = 'toast-success';
+            if (type === 'warning') bgClass = 'toast-warning';
+            if (type === 'error') bgClass = 'toast-error';
+            
+            toast.className = `toast ${bgClass} px-6 py-3 shadow-xl flex items-center gap-x-3 max-w-[90vw]`;
+            toast.innerHTML = `
+                <div class="flex-1 text-sm font-medium">${message}</div>
+                <button onclick="this.parentElement.remove()" class="text-white/70 hover:text-white text-xl leading-none">×</button>
+            `;
+            container.appendChild(toast);
+            
+            const timeout = type === 'error' ? 8000 : 4500;
+            setTimeout(() => {
+                if (toast.parentElement) toast.parentElement.removeChild(toast);
+            }, timeout);
+        }
 
         // ==================== HELPER ====================
         function formatTime(date) {
@@ -174,11 +271,9 @@
             return `${h}:${m}`;
         }
 
-        // ==================== KOMPRESI FOTO MAKSIMAL 5MB (SEKECIL MUNGKIN) ====================
+        // ==================== KOMPRESI FOTO (MAKS 5MB - SEKECIL MUNGKIN) ====================
         async function compressImageToMaxSize(file, maxSizeMB = 5) {
             const maxSizeBytes = maxSizeMB * 1024 * 1024;
-            
-            // Mulai lebih agresif untuk hasil sekecil mungkin
             let quality = 0.75;
             let maxWidth = 1024;
 
@@ -187,7 +282,6 @@
             let attempts = 0;
             while (compressedBlob.size > maxSizeBytes && attempts < 10) {
                 attempts++;
-
                 if (quality > 0.4) {
                     quality -= 0.08;
                 } else if (maxWidth > 480) {
@@ -196,12 +290,8 @@
                 } else {
                     quality = 0.4;
                 }
-
                 compressedBlob = await compressWithCanvas(file, maxWidth, quality);
             }
-
-            const finalSizeMB = (compressedBlob.size / 1024 / 1024).toFixed(2);
-            console.log(`Foto akhir: ${finalSizeMB} MB (target ≤ ${maxSizeMB}MB)`);
             return compressedBlob;
         }
 
@@ -235,129 +325,126 @@
                 reader.readAsDataURL(file);
             });
         }
-        let currentUser = null;
-        let isAdmin = false;
-        
-        async function loginAsAdmin() {
-            const email = document.getElementById('admin-email').value;
-            const password = document.getElementById('admin-password').value;
-        
-            const { data, error } = await supabaseClient.auth.signInWithPassword({
-                email: email,
-                password: password
+
+        // ==================== GEOLOCATION ====================
+        async function getCurrentLocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    resolve({ lat: null, lng: null });
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                    () => resolve({ lat: null, lng: null }),
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
             });
-        
-            if (error) {
-                alert("Login gagal: " + error.message);
-                return;
-            }
-        
-            currentUser = data.user;
-        
-            // Cek role dari tabel profiles
-            const { data: profileData } = await supabaseClient
-                .from('profiles')
-                .select('role, nama')
-                .eq('id', currentUser.id)
-                .single();
-        
-            if (profileData?.role === 'admin') {
-                isAdmin = true;
-                hideAdminLogin();
-                showSection('admin');
-                await loadAllAttendanceData();
-                alert("Login Admin berhasil!");
-            } else {
-                alert("Akun ini bukan admin.");
-                await supabaseClient.auth.signOut();
+        }
+
+        // ==================== SUPABASE INIT + AUTH ====================
+        function initSupabase() {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log("%c[Supabase] Connected", "color:#3ecf8e");
+
+            // Listen to auth state changes
+            supabaseClient.auth.onAuthStateChange((event, session) => {
+                if (session?.user) {
+                    currentUser = session.user;
+                    checkUserRole();
+                } else {
+                    currentUser = null;
+                    isAdmin = false;
+                    updateAdminUI();
+                }
+            });
+        }
+
+        async function checkUserRole() {
+            if (!currentUser) return;
+
+            try {
+                const { data: profileData } = await supabaseClient
+                    .from('profiles')
+                    .select('role, nama, nis')
+                    .eq('id', currentUser.id)
+                    .single();
+
+                if (profileData?.role === 'admin') {
+                    isAdmin = true;
+                    updateAdminUI();
+                    showToast(`Selamat datang, Admin ${profileData.nama || ''}`, 'success');
+                }
+            } catch (err) {
+                console.log("Profile not found or error checking role");
             }
         }
-        
+
+        function updateAdminUI() {
+            const statusEl = document.getElementById('admin-status');
+            const loginBtn = document.getElementById('btn-admin-login');
+
+            if (isAdmin) {
+                statusEl.classList.remove('hidden');
+                statusEl.classList.add('flex');
+                loginBtn.style.display = 'none';
+            } else {
+                statusEl.classList.add('hidden');
+                statusEl.classList.remove('flex');
+                loginBtn.style.display = 'block';
+            }
+        }
+
+        async function loginAsAdmin() {
+            const email = document.getElementById('admin-email').value.trim();
+            const password = document.getElementById('admin-password').value.trim();
+
+            if (!email || !password) {
+                showToast("Email dan password harus diisi", 'warning');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+
+                currentUser = data.user;
+                hideAdminLogin();
+                await checkUserRole();
+
+            } catch (err) {
+                console.error(err);
+                showToast("Login gagal: " + (err.message || "Periksa email & password"), 'error');
+            }
+        }
+
+        async function logoutAdmin() {
+            await supabaseClient.auth.signOut();
+            isAdmin = false;
+            currentUser = null;
+            updateAdminUI();
+            showSection('dashboard');
+            showToast("Anda telah logout dari mode Admin.", 'success');
+        }
+
         function showAdminLogin() {
             document.getElementById('admin-login-modal').classList.remove('hidden');
         }
-        
+
         function hideAdminLogin() {
             document.getElementById('admin-login-modal').classList.add('hidden');
         }
 
-        async function showAdminSection() {
-            if (!isAdmin) {
-                showAdminLogin();
-                return;
-            }
-            showSection('admin');
-            if (allAdminData.length === 0) {
-                await loadAllAttendanceData();
-            }
-        }
-        
-        // ==================== LOKASI (GEOLOCATION) ====================
-        async function getCurrentLocation() {
-          return new Promise((resolve) => {
-            if (!navigator.geolocation) {
-              alert("Browser kamu tidak mendukung fitur lokasi.");
-              return resolve({ lat: null, lng: null, accuracy: null });
-            }
-        
-            const options = {
-              enableHighAccuracy: true,   // Minta posisi paling akurat
-              timeout: 12000,             // Tunggu maksimal 12 detik
-              maximumAge: 0               // Selalu ambil data baru
-            };
-        
-            navigator.geolocation.getCurrentPosition(
-              (position) => {
-                resolve({
-                  lat: position.coords.latitude,
-                  lng: position.coords.longitude,
-                  accuracy: position.coords.accuracy,        // Akurasi dalam meter
-                  altitude: position.coords.altitude,
-                  heading: position.coords.heading,
-                  speed: position.coords.speed
-                });
-              },
-              (error) => {
-                console.error("Geolocation error:", error);
-                let msg = "Gagal mengambil lokasi.";
-        
-                if (error.code === error.PERMISSION_DENIED) {
-                  msg = "Izin lokasi ditolak. Silakan aktifkan di pengaturan browser.";
-                } else if (error.code === error.POSITION_UNAVAILABLE) {
-                  msg = "Posisi tidak tersedia saat ini.";
-                } else if (error.code === error.TIMEOUT) {
-                  msg = "Waktu habis saat mengambil lokasi.";
-                }
-        
-                alert(msg);
-                resolve({ lat: null, lng: null, accuracy: null });
-              },
-              options
-            );
-          });
-        }
-
-        // ==================== INIT ====================
-        function initSupabase() {
-            if (typeof window.supabase === 'undefined') return;
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            console.log("%c[Supabase] Connected", "color:#3ecf8e");
-        }
-
+        // ==================== LOAD DATA ====================
         function loadLocalData() {
             const savedProfile = localStorage.getItem('pkl_profile');
             if (savedProfile) profile = JSON.parse(savedProfile);
 
-            if (typeof window.loadAttendanceData === 'function') {
-                window.loadAttendanceData().then(data => {
-                    attendances = data || [];
-                    renderDashboard();
-                    renderHistory();
-                });
-            } else {
-                const saved = localStorage.getItem('pkl_attendances');
-                if (saved) attendances = JSON.parse(saved);
-            }
+            const saved = localStorage.getItem('pkl_attendances');
+            if (saved) attendances = JSON.parse(saved);
         }
 
         function saveLocalData() {
@@ -367,27 +454,13 @@
             }
         }
 
-        function updateNetworkStatus() {
-            const statusEl = document.getElementById('sync-status');
-            const dot = document.getElementById('sync-dot');
-            const text = document.getElementById('sync-text');
-
-            if (navigator.onLine) {
-                dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
-                text.textContent = 'Online';
-                statusEl.className = 'text-xs px-3 py-1 rounded-full bg-emerald-900/50 border border-emerald-700 flex items-center gap-x-1.5';
-            } else {
-                dot.className = 'w-2 h-2 rounded-full bg-amber-400';
-                text.textContent = 'Offline';
-                statusEl.className = 'text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700 flex items-center gap-x-1.5';
-            }
-        }
-
         // ==================== SYNC ====================
         async function handleSync() {
             if (typeof window.syncPendingRecords === 'function') {
                 const result = await window.syncPendingRecords();
-                alert(result.message || `${result.success} berhasil, ${result.failed} gagal`);
+                showToast(result.message || `${result.success} berhasil, ${result.failed} gagal`, 
+                          result.failed > 0 ? 'warning' : 'success');
+                
                 if (typeof window.loadAttendanceData === 'function') {
                     attendances = await window.loadAttendanceData();
                     renderDashboard();
@@ -399,11 +472,14 @@
         }
 
         async function syncToSupabase() {
-            if (!supabaseClient || !navigator.onLine) return;
+            if (!supabaseClient || !navigator.onLine) {
+                showToast("Tidak ada koneksi internet.", 'warning');
+                return;
+            }
 
             const unsynced = attendances.filter(a => !a.synced);
             if (unsynced.length === 0) {
-                alert("Semua data sudah tersinkron.");
+                showToast("Semua data sudah tersinkron.", 'success');
                 return;
             }
 
@@ -421,39 +497,154 @@
                         lat: record.lat,
                         lng: record.lng,
                         status_masuk: record.status_masuk,
-                        photo_url: record.photo_url
+                        photo_url: record.photo_url || null
                     });
+
                     if (!error) {
                         record.synced = true;
                         success++;
-                    } else failed++;
+                    } else {
+                        failed++;
+                        console.error("Sync error:", error);
+                    }
                 } catch (e) {
                     failed++;
                 }
             }
+
             saveLocalData();
             renderHistory();
-            alert(`${success} berhasil, ${failed} gagal.`);
+            showToast(`${success} berhasil, ${failed} gagal.`, failed > 0 ? 'warning' : 'success');
         }
 
         async function loadFromSupabase() {
             if (!supabaseClient) return;
+
             try {
-                const { data } = await supabaseClient.from('attendances').select('*').order('tanggal', { ascending: false });
+                let query = supabaseClient.from('attendances').select('*').order('tanggal', { ascending: false });
+
+                // Jika student login, filter data sendiri
+                if (currentUser && !isAdmin && profile.nis) {
+                    query = query.eq('student_nis', profile.nis);
+                }
+
+                const { data, error } = await query;
+                if (error) throw error;
+
                 data.forEach(cloudRecord => {
                     const idx = attendances.findIndex(a => a.id === cloudRecord.id);
-                    if (idx === -1) attendances.push({ ...cloudRecord, synced: true });
+                    if (idx === -1) {
+                        attendances.push({ ...cloudRecord, synced: true });
+                    }
                 });
+
                 saveLocalData();
                 renderHistory();
-            } catch (e) {}
+                showToast("Data berhasil dimuat dari Supabase.", 'success');
+            } catch (e) {
+                showToast("Gagal memuat data.", 'error');
+            }
         }
 
-        // ==================== PHOTO DENGAN KOMPRESI MAKS 5MB ====================
+        // ==================== ADMIN: LOAD ALL DATA ====================
+        async function loadAllAttendanceData() {
+            if (!supabaseClient) return;
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('attendances')
+                    .select('*')
+                    .order('tanggal', { ascending: false });
+
+                if (error) throw error;
+
+                allAdminData = data || [];
+                renderAdminTable(allAdminData);
+                showToast(`Berhasil memuat ${allAdminData.length} data.`, 'success');
+            } catch (err) {
+                console.error(err);
+                showToast("Gagal memuat data admin. Pastikan RLS sudah benar.", 'error');
+            }
+        }
+
+        function renderAdminTable(data) {
+            const tbody = document.getElementById('admin-table-body');
+            tbody.innerHTML = '';
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">Tidak ada data</td></tr>`;
+                return;
+            }
+
+            data.forEach(record => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-800 border-b border-slate-700';
+
+                const hasLocation = record.lat && record.lng;
+                const locationHTML = hasLocation 
+                    ? `<a href="https://www.google.com/maps?q=${record.lat},${record.lng}" target="_blank" class="text-blue-400 hover:underline text-xs">Lihat Peta</a>` 
+                    : '-';
+
+                const photoHTML = record.photo_url 
+                    ? `<img src="${record.photo_url}" class="w-9 h-9 object-cover rounded cursor-pointer" onclick="showPhoto('${record.photo_url}')">` 
+                    : '-';
+
+                row.innerHTML = `
+                    <td class="px-4 py-3">${record.tanggal}</td>
+                    <td class="px-4 py-3 font-medium">${record.student_name || '-'}</td>
+                    <td class="px-4 py-3 text-xs">${record.student_nis || ''} ${record.kelas ? '('+record.kelas+')' : ''}</td>
+                    <td class="px-4 py-3 text-xs">${record.jam_masuk || ''} → ${record.jam_keluar || '-'}</td>
+                    <td class="px-4 py-3">${locationHTML}</td>
+                    <td class="px-4 py-3">${photoHTML}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function filterAdminData() {
+            const search = document.getElementById('admin-search').value.toLowerCase();
+            const dateFilter = document.getElementById('admin-date-filter').value;
+
+            let filtered = allAdminData;
+
+            if (search) {
+                filtered = filtered.filter(r => 
+                    (r.student_name && r.student_name.toLowerCase().includes(search)) ||
+                    (r.student_nis && r.student_nis.includes(search))
+                );
+            }
+
+            if (dateFilter) {
+                filtered = filtered.filter(r => r.tanggal === dateFilter);
+            }
+
+            renderAdminTable(filtered);
+        }
+
+        function exportToCSV() {
+            if (!allAdminData.length) {
+                showToast("Tidak ada data untuk diexport", 'warning');
+                return;
+            }
+
+            let csv = "Tanggal,Nama Siswa,NIS,Kelas,Jam Masuk,Jam Keluar,Latitude,Longitude\n";
+            allAdminData.forEach(r => {
+                csv += `${r.tanggal},${r.student_name || ''},${r.student_nis || ''},${r.kelas || ''},${r.jam_masuk || ''},${r.jam_keluar || ''},${r.lat || ''},${r.lng || ''}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.href = url;
+            link.download = `absensi_semua_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        // ==================== PHOTO ====================
         async function addPhoto() {
             const record = getTodayRecord();
             if (!record) {
-                alert("Absen dulu baru bisa tambah foto");
+                showToast("Absen dulu baru bisa tambah foto", 'warning');
                 return;
             }
 
@@ -482,7 +673,7 @@
                             student_name: profile.nama
                         }, compressedBlob);
 
-                        alert("Foto berhasil disimpan (≤ 5MB, sudah dikompresi).");
+                        showToast("Foto berhasil disimpan.", 'success');
                         if (typeof window.loadAttendanceData === 'function') {
                             attendances = await window.loadAttendanceData();
                             renderDashboard();
@@ -490,7 +681,7 @@
                         }
                         return;
                     } catch (err) {
-                        console.error(err);
+                        showToast("Gagal menyimpan foto.", 'error');
                     }
                 }
 
@@ -507,10 +698,10 @@
                         saveLocalData();
                         renderDashboard();
                         renderHistory();
-                        alert("Foto berhasil diupload (≤ 5MB)!");
+                        showToast("Foto berhasil diupload!", 'success');
                         return;
                     } catch (err) {
-                        console.warn("Upload gagal");
+                        showToast("Gagal upload foto.", 'error');
                     }
                 }
 
@@ -522,7 +713,7 @@
                     saveLocalData();
                     renderDashboard();
                     renderHistory();
-                    alert("Foto disimpan lokal.");
+                    showToast("Foto disimpan lokal.", 'warning');
                 };
                 reader.readAsDataURL(compressedBlob);
             };
@@ -530,7 +721,7 @@
             input.click();
         }
 
-        // ==================== ATTENDANCE + LOKASI ====================
+        // ==================== ATTENDANCE ====================
         function getTodayRecord() {
             const today = new Date().toISOString().split('T')[0];
             return attendances.find(a => a.tanggal === today);
@@ -539,7 +730,7 @@
         async function doCheckIn() {
             const today = new Date().toISOString().split('T')[0];
             if (getTodayRecord()) {
-                alert("Sudah absen hari ini");
+                showToast("Sudah absen hari ini", 'warning');
                 return;
             }
 
@@ -549,11 +740,7 @@
             const recordData = {
                 id: Date.now(),
                 tanggal: today,
-                jam_masuk: now.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false
-                }).replace('.', ':'),
+                jam_masuk: formatTime(now),
                 jam_keluar: null,
                 lat: location.lat,
                 lng: location.lng,
@@ -574,12 +761,7 @@
             saveLocalData();
             renderDashboard();
             renderHistory();
-            
-            if (location.lat) {
-                alert("Absen masuk berhasil + lokasi tercatat.");
-            } else {
-                alert("Absen masuk berhasil (lokasi tidak tersedia).");
-            }
+            showToast("Absen masuk berhasil.", 'success');
         }
 
         async function doCheckOut() {
@@ -588,10 +770,8 @@
 
             const now = new Date();
             const location = await getCurrentLocation();
-            // GANTI DENGAN INI:
-            const pad = n => n.toString().padStart(2, '0');
-            record.jam_keluar = ${pad(now.getHours())}:${pad(now.getMinutes())};
-            
+
+            record.jam_keluar = formatTime(now);
             if (location.lat) {
                 record.lat = location.lat;
                 record.lng = location.lng;
@@ -608,7 +788,7 @@
             saveLocalData();
             renderDashboard();
             renderHistory();
-            alert("Absen keluar berhasil.");
+            showToast("Absen keluar berhasil.", 'success');
         }
 
         // ==================== RENDER ====================
@@ -624,8 +804,7 @@
 
             if (!record) {
                 statusText.textContent = "Belum Absen Masuk";
-                const btn = createButton("📍 Absen Masuk + Lokasi", "bg-emerald-500 text-emerald-950", doCheckIn);
-                actionArea.appendChild(btn);
+                actionArea.appendChild(createButton("📍 Absen Masuk + Lokasi", "bg-emerald-500 text-emerald-950", doCheckIn));
             } else if (!record.jam_keluar) {
                 statusText.textContent = "Sedang Bekerja";
                 actionArea.appendChild(createButton("🛑 Absen Keluar + Lokasi", "bg-rose-500 text-white", doCheckOut));
@@ -669,7 +848,6 @@
                         <div class="text-xs ${isPending ? 'text-amber-400' : 'text-emerald-400'}">${isPending ? 'PENDING' : 'SYNCED'}</div>
                     </div>
                     ${record.photo_url ? `<img src="${record.photo_url}" class="mt-3 w-16 h-16 object-cover rounded-2xl border border-slate-600 cursor-pointer" onclick="showPhoto('${record.photo_url}')">` : ''}
-                    ${record.pending_photo_base64 ? `<div class="mt-2 text-xs text-amber-400">📸 Foto tersimpan lokal</div>` : ''}
                 `;
                 container.appendChild(div);
             });
@@ -690,9 +868,29 @@
         function showSection(section) {
             document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
             document.getElementById(`section-${section}`).classList.add('active');
-            document.querySelectorAll('[id^="tab-"]').forEach(tab => tab.classList.remove('active', 'bg-emerald-500', 'text-slate-900'));
-            document.getElementById(`tab-${section}`).classList.add('active', 'bg-emerald-500', 'text-slate-900');
+
+            document.querySelectorAll('[id^="tab-"]').forEach(tab => {
+                tab.classList.remove('active', 'bg-emerald-500', 'text-slate-900');
+                if (tab.id === `tab-${section}`) {
+                    tab.classList.add('active', 'bg-emerald-500', 'text-slate-900');
+                }
+            });
+
             if (section === 'riwayat') renderHistory();
+            if (section === 'admin' && isAdmin && allAdminData.length === 0) {
+                loadAllAttendanceData();
+            }
+        }
+
+        async function showAdminSection() {
+            if (!isAdmin) {
+                showAdminLogin();
+                return;
+            }
+            showSection('admin');
+            if (allAdminData.length === 0) {
+                await loadAllAttendanceData();
+            }
         }
 
         function saveProfile() {
@@ -706,7 +904,7 @@
                 window.initSyncManager(supabaseClient, profile);
             }
             document.getElementById('greeting').textContent = `Halo, ${profile.nama || 'Siswa'}!`;
-            alert("Profil berhasil disimpan");
+            showToast("Profil berhasil disimpan.", 'success');
         }
 
         function updateGreeting() {
@@ -715,6 +913,22 @@
             document.getElementById('nis').value = profile.nis || '';
             document.getElementById('kelas').value = profile.kelas || '';
             document.getElementById('tempat').value = profile.tempat_pkl || '';
+        }
+
+        function updateNetworkStatus() {
+            const statusEl = document.getElementById('sync-status');
+            const dot = document.getElementById('sync-dot');
+            const text = document.getElementById('sync-text');
+
+            if (navigator.onLine) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+                text.textContent = 'Online';
+                statusEl.className = 'text-xs px-3 py-1 rounded-full bg-emerald-900/50 border border-emerald-700 flex items-center gap-x-1.5';
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+                text.textContent = 'Offline';
+                statusEl.className = 'text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700 flex items-center gap-x-1.5';
+            }
         }
 
         // ==================== INIT ====================
@@ -726,18 +940,21 @@
             renderHistory();
             updateNetworkStatus();
 
-            if (typeof window.initSyncManager === 'function' && supabaseClient) {
-                window.initSyncManager(supabaseClient, profile);
+            // Auto check if already logged in
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session?.user) {
+                currentUser = session.user;
+                await checkUserRole();
             }
 
-            window.addEventListener('online', () => {
-                updateNetworkStatus();
-                if (typeof window.syncPendingRecords === 'function') {
-                    setTimeout(() => window.syncPendingRecords(), 1000);
-                }
-            });
+            window.addEventListener('online', updateNetworkStatus);
             window.addEventListener('offline', updateNetworkStatus);
             setInterval(updateNetworkStatus, 30000);
+
+            // Welcome
+            setTimeout(() => {
+                showToast("Aplikasi siap. Admin bisa login untuk melihat semua data.", 'success');
+            }, 2000);
         }
 
         window.onload = initApp;
