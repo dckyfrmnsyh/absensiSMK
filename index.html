@@ -39,6 +39,11 @@
                 </div>
             </div>
             <div class="flex items-center gap-x-2">
+                <!-- Tombol Install PWA -->
+                <button id="install-btn" 
+                        class="hidden items-center gap-x-2 text-xs px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-full font-medium transition-colors">
+                    <span>📲 Install App</span>
+                </button>
                 <!-- Admin Status -->
                 <div id="admin-status" class="hidden items-center gap-x-2 text-xs px-3 py-1 rounded-full bg-emerald-900/50 border border-emerald-700">
                     <span class="text-emerald-400">👑 Admin</span>
@@ -720,7 +725,44 @@
 
             input.click();
         }
-
+        // ==================== PWA INSTALL HANDLER ====================
+        let deferredPrompt;
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Jangan tampilkan prompt default browser
+            e.preventDefault();
+            deferredPrompt = e;
+        
+            // Tampilkan tombol install custom
+            const installBtn = document.getElementById('install-btn');
+            if (installBtn) {
+                installBtn.classList.remove('hidden');
+                installBtn.classList.add('flex');
+        
+                installBtn.addEventListener('click', async () => {
+                    installBtn.classList.add('hidden');
+                    installBtn.classList.remove('flex');
+        
+                    // Tampilkan prompt install
+                    deferredPrompt.prompt();
+        
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`User response to the install prompt: ${outcome}`);
+        
+                    deferredPrompt = null;
+                });
+            }
+        });
+        
+        // Sembunyikan tombol jika sudah terinstall
+        window.addEventListener('appinstalled', () => {
+            const installBtn = document.getElementById('install-btn');
+            if (installBtn) {
+                installBtn.classList.add('hidden');
+                installBtn.classList.remove('flex');
+            }
+            console.log('PWA was installed');
+        });
         // ==================== ATTENDANCE ====================
         function getTodayRecord() {
             const today = new Date().toISOString().split('T')[0];
