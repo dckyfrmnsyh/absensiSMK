@@ -236,7 +236,7 @@
     <script>
         // ==================== CONFIG ====================
         const SUPABASE_URL = 'https://hqoiqoqdqzkkssgoqhpj.supabase.co';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE'; // Ganti dengan key asli dari Supabase
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhxb2lxb3FkcXpra3NzZ29xaHBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNTQ4MzcsImV4cCI6MjA5NjYzMDgzN30.8KRYBV-t47ca08Q8G4yqn3bfVLPFEE9PDIrtAfbpVnE'; // Ganti dengan key asli dari Supabase
 
         let supabaseClient = null;
         let profile = { nama: "Siswa PKL", nis: "", kelas: "", tempat_pkl: "" };
@@ -645,7 +645,10 @@
         }
 
         function updateGreeting() {
-            document.getElementById('greeting').textContent = `Halo, ${profile.nama || 'Siswa'}!`;
+            const greetingEl = document.getElementById('greeting');
+            if (greetingEl) {
+                greetingEl.textContent = `Halo, ${profile.nama || 'Siswa'}!`;
+            }
             document.getElementById('nama').value = profile.nama || '';
             document.getElementById('nis').value = profile.nis || '';
             document.getElementById('kelas').value = profile.kelas || '';
