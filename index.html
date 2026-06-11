@@ -24,10 +24,20 @@
         .nav-active { color: #10b981; font-weight: 600; }
         .card { background: white; border: 1px solid #e2e8f0; }
         .toast {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            z-index: 9999; padding: 12px 24px; border-radius: 9999px;
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-            max-width: 90%; text-align: center; font-weight: 500;
+            position: fixed;
+            bottom: 90px;                    /* Naikkan agar tidak nabrak bottom nav */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99999;
+            max-width: 92%;
+            padding: 14px 20px;
+            border-radius: 16px;             /* Lebih modern, bukan pill ekstrem */
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            line-height: 1.4;
         }
         .toast-success { background-color: #059669; color: white; }
         .toast-warning { background-color: #d97706; color: white; }
@@ -56,9 +66,10 @@
                     <button onclick="logoutAdmin()" class="text-emerald-600 hover:text-emerald-800 text-xs">Logout</button>
                 </div>
                 
-                <button onclick="showAdminLogin()" id="btn-admin-login"
+                <button id="btn-admin-login"
                         class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full font-medium transition-colors">
-                    Admin
+                    <h1 class="text-2xl font-bold text-slate-900" id="greeting">Halo, Siswa!</h1>
+                     <p class="text-sm text-slate-500" id="current-date"></p>
                 </button>
             </div>
         </div>
@@ -71,10 +82,6 @@
         <div class="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-sm">
             <p class="font-medium text-emerald-700">ABSENSI WAJIB SETIAP HARI KERJA</p>
             <p class="text-emerald-600 text-xs mt-1">Foto wajib di depan kantor / lokasi kerja</p>
-        </div>
-        <div>
-             <h1 class="text-2xl font-bold text-slate-900" id="greeting">Halo, Siswa!</h1>
-             <p class="text-sm text-slate-500" id="current-date"></p>
         </div>
 </br></br></br>
         <!-- Status -->
