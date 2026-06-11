@@ -3,14 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi PKL • Supabase (Maksimal 2MB per Foto)</title>
+    <title>Absensi PKL • Supabase (Maks 5MB Foto + Lokasi)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-    
-        <!-- Untuk performa terbaik: -->
-        <script src="sync-manager.js"></script>
-   
+    <!-- Untuk performa terbaik (opsional) -->
+    <script src="sync-manager.js"></script>
     
     <link rel="manifest" href="manifest.json">
     <style>
@@ -28,7 +26,7 @@
                 <div class="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-xl">📍</div>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight">Absensi PKL</h1>
-                    <p class="text-emerald-400 text-xs -mt-1">Supabase + Maks 2MB/Foto</p>
+                    <p class="text-emerald-400 text-xs -mt-1">SMK Negeri 1 Tana Tidung</p>
                 </div>
             </div>
             <div class="flex items-center gap-x-2">
@@ -49,6 +47,9 @@
             <button onclick="showSection('dashboard')" class="nav-tab flex-1 py-3 text-sm font-bold rounded-3xl active bg-emerald-500 text-slate-900" id="tab-dashboard">Dashboard</button>
             <button onclick="showSection('riwayat')" class="nav-tab flex-1 py-3 text-sm font-bold rounded-3xl text-slate-400" id="tab-riwayat">Riwayat</button>
             <button onclick="showSection('profil')" class="nav-tab flex-1 py-3 text-sm font-bold rounded-3xl text-slate-400" id="tab-profil">Profil</button>
+            <button onclick="showAdminSection()" 
+        class="nav-tab flex-1 py-3 text-sm font-bold rounded-3xl text-slate-400" 
+        id="tab-admin">Admin</button>
         </div>
     </div>
 
@@ -56,7 +57,7 @@
     <div id="section-dashboard" class="section active max-w-5xl mx-auto px-4 pt-6">
         <div class="mb-6">
             <h2 id="greeting" class="text-3xl font-bold">Halo, Siswa!</h2>
-            <p class="text-emerald-400 text-sm">Foto otomatis dikompresi maksimal <strong>2MB</strong>.</p>
+            <p class="text-emerald-400 text-sm">ABSENSI WAJIB SETIAP HARI KERJA <strong>FOTO WAJIB DI DEPAN KANTOR/ LOKASI KERJA</strong></p>
         </div>
 
         <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 mb-6">
@@ -127,7 +128,36 @@
             </button>
         </div>
     </div>
-
+    <!-- ADMIN LOGIN MODAL -->
+    <div id="admin-login-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[999]">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-8 w-full max-w-md">
+            <h3 class="text-xl font-bold mb-6">Login Admin</h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-emerald-400">EMAIL</label>
+                    <input id="admin-email" type="email" value="admin@sekolah.sch.id"
+                           class="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 mt-1">
+                </div>
+                <div>
+                    <label class="text-xs text-emerald-400">PASSWORD</label>
+                    <input id="admin-password" type="password" value="admin123"
+                           class="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 mt-1">
+                </div>
+            </div>
+    
+            <div class="flex gap-x-3 mt-6">
+                <button onclick="loginAsAdmin()" 
+                        class="flex-1 py-3 bg-emerald-500 text-emerald-950 font-bold rounded-3xl">
+                    Login
+                </button>
+                <button onclick="hideAdminLogin()" 
+                        class="flex-1 py-3 bg-slate-700 rounded-3xl">
+                    Batal
+                </button>
+            </div>
+        </div>
+    </div>
     <script>
         // ==================== SUPABASE CONFIG ====================
         const SUPABASE_URL = 'https://hqoiqoqdqzkkssgoqhpj.supabase.co';
@@ -144,34 +174,34 @@
             return `${h}:${m}`;
         }
 
-        // ==================== KOMPRESI FOTO MAKSIMAL 2MB ====================
-        async function compressImageToMaxSize(file, maxSizeMB = 2) {
+        // ==================== KOMPRESI FOTO MAKSIMAL 5MB (SEKECIL MUNGKIN) ====================
+        async function compressImageToMaxSize(file, maxSizeMB = 5) {
             const maxSizeBytes = maxSizeMB * 1024 * 1024;
-            let quality = 0.85;
-            let maxWidth = 1280;
+            
+            // Mulai lebih agresif untuk hasil sekecil mungkin
+            let quality = 0.75;
+            let maxWidth = 1024;
 
-            // Pertama, coba resize + kualitas sedang
             let compressedBlob = await compressWithCanvas(file, maxWidth, quality);
 
-            // Jika masih terlalu besar, turunkan kualitas dan ukuran secara bertahap
             let attempts = 0;
-            while (compressedBlob.size > maxSizeBytes && attempts < 8) {
+            while (compressedBlob.size > maxSizeBytes && attempts < 10) {
                 attempts++;
 
-                if (quality > 0.5) {
-                    quality -= 0.1;
-                } else if (maxWidth > 640) {
-                    maxWidth = Math.floor(maxWidth * 0.75);
-                    quality = 0.75;
+                if (quality > 0.4) {
+                    quality -= 0.08;
+                } else if (maxWidth > 480) {
+                    maxWidth = Math.floor(maxWidth * 0.7);
+                    quality = 0.65;
                 } else {
-                    // Jika masih besar, paksa kualitas rendah
-                    quality = 0.5;
+                    quality = 0.4;
                 }
 
                 compressedBlob = await compressWithCanvas(file, maxWidth, quality);
             }
 
-            console.log(`Foto akhir: ${(compressedBlob.size / 1024 / 1024).toFixed(2)} MB (target ≤ ${maxSizeMB}MB)`);
+            const finalSizeMB = (compressedBlob.size / 1024 / 1024).toFixed(2);
+            console.log(`Foto akhir: ${finalSizeMB} MB (target ≤ ${maxSizeMB}MB)`);
             return compressedBlob;
         }
 
@@ -204,6 +234,107 @@
                 };
                 reader.readAsDataURL(file);
             });
+        }
+        let currentUser = null;
+        let isAdmin = false;
+        
+        async function loginAsAdmin() {
+            const email = document.getElementById('admin-email').value;
+            const password = document.getElementById('admin-password').value;
+        
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
+        
+            if (error) {
+                alert("Login gagal: " + error.message);
+                return;
+            }
+        
+            currentUser = data.user;
+        
+            // Cek role dari tabel profiles
+            const { data: profileData } = await supabaseClient
+                .from('profiles')
+                .select('role, nama')
+                .eq('id', currentUser.id)
+                .single();
+        
+            if (profileData?.role === 'admin') {
+                isAdmin = true;
+                hideAdminLogin();
+                showSection('admin');
+                await loadAllAttendanceData();
+                alert("Login Admin berhasil!");
+            } else {
+                alert("Akun ini bukan admin.");
+                await supabaseClient.auth.signOut();
+            }
+        }
+        
+        function showAdminLogin() {
+            document.getElementById('admin-login-modal').classList.remove('hidden');
+        }
+        
+        function hideAdminLogin() {
+            document.getElementById('admin-login-modal').classList.add('hidden');
+        }
+
+        async function showAdminSection() {
+            if (!isAdmin) {
+                showAdminLogin();
+                return;
+            }
+            showSection('admin');
+            if (allAdminData.length === 0) {
+                await loadAllAttendanceData();
+            }
+        }
+        
+        // ==================== LOKASI (GEOLOCATION) ====================
+        async function getCurrentLocation() {
+          return new Promise((resolve) => {
+            if (!navigator.geolocation) {
+              alert("Browser kamu tidak mendukung fitur lokasi.");
+              return resolve({ lat: null, lng: null, accuracy: null });
+            }
+        
+            const options = {
+              enableHighAccuracy: true,   // Minta posisi paling akurat
+              timeout: 12000,             // Tunggu maksimal 12 detik
+              maximumAge: 0               // Selalu ambil data baru
+            };
+        
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                resolve({
+                  lat: position.coords.latitude,
+                  lng: position.coords.longitude,
+                  accuracy: position.coords.accuracy,        // Akurasi dalam meter
+                  altitude: position.coords.altitude,
+                  heading: position.coords.heading,
+                  speed: position.coords.speed
+                });
+              },
+              (error) => {
+                console.error("Geolocation error:", error);
+                let msg = "Gagal mengambil lokasi.";
+        
+                if (error.code === error.PERMISSION_DENIED) {
+                  msg = "Izin lokasi ditolak. Silakan aktifkan di pengaturan browser.";
+                } else if (error.code === error.POSITION_UNAVAILABLE) {
+                  msg = "Posisi tidak tersedia saat ini.";
+                } else if (error.code === error.TIMEOUT) {
+                  msg = "Waktu habis saat mengambil lokasi.";
+                }
+        
+                alert(msg);
+                resolve({ lat: null, lng: null, accuracy: null });
+              },
+              options
+            );
+          });
         }
 
         // ==================== INIT ====================
@@ -290,7 +421,7 @@
                         lat: record.lat,
                         lng: record.lng,
                         status_masuk: record.status_masuk,
-                        photo_url: record.photo_url || null
+                        photo_url: record.photo_url
                     });
                     if (!error) {
                         record.synced = true;
@@ -318,7 +449,7 @@
             } catch (e) {}
         }
 
-        // ==================== PHOTO DENGAN KOMPRESI MAKS 2MB ====================
+        // ==================== PHOTO DENGAN KOMPRESI MAKS 5MB ====================
         async function addPhoto() {
             const record = getTodayRecord();
             if (!record) {
@@ -335,8 +466,7 @@
                 const file = e.target.files[0];
                 if (!file) return;
 
-                // Kompresi dengan target maksimal 2MB
-                const compressedBlob = await compressImageToMaxSize(file, 2);
+                const compressedBlob = await compressImageToMaxSize(file, 5);
 
                 if (typeof window.saveAttendanceOfflineFirst === 'function') {
                     try {
@@ -352,7 +482,7 @@
                             student_name: profile.nama
                         }, compressedBlob);
 
-                        alert("Foto berhasil disimpan (≤ 2MB).");
+                        alert("Foto berhasil disimpan (≤ 5MB, sudah dikompresi).");
                         if (typeof window.loadAttendanceData === 'function') {
                             attendances = await window.loadAttendanceData();
                             renderDashboard();
@@ -377,7 +507,7 @@
                         saveLocalData();
                         renderDashboard();
                         renderHistory();
-                        alert("Foto berhasil diupload (≤ 2MB)!");
+                        alert("Foto berhasil diupload (≤ 5MB)!");
                         return;
                     } catch (err) {
                         console.warn("Upload gagal");
@@ -400,13 +530,13 @@
             input.click();
         }
 
-        // ==================== ATTENDANCE ====================
+        // ==================== ATTENDANCE + LOKASI ====================
         function getTodayRecord() {
             const today = new Date().toISOString().split('T')[0];
             return attendances.find(a => a.tanggal === today);
         }
 
-       async function doCheckIn() {
+        async function doCheckIn() {
             const today = new Date().toISOString().split('T')[0];
             if (getTodayRecord()) {
                 alert("Sudah absen hari ini");
@@ -414,17 +544,19 @@
             }
 
             const now = new Date();
+            const location = await getCurrentLocation();
+
             const recordData = {
                 id: Date.now(),
                 tanggal: today,
-                jam_masuk: now.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    hour12: false 
-                }).replace('.', ':'),
+                jam_masuk: now.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                }).replace('.', ':'),
                 jam_keluar: null,
-                lat: null,
-                lng: null,
+                lat: location.lat,
+                lng: location.lng,
                 status_masuk: "Hadir",
                 photo_url: null,
                 synced: false
@@ -442,6 +574,12 @@
             saveLocalData();
             renderDashboard();
             renderHistory();
+            
+            if (location.lat) {
+                alert("Absen masuk berhasil + lokasi tercatat.");
+            } else {
+                alert("Absen masuk berhasil (lokasi tidak tersedia).");
+            }
         }
 
         async function doCheckOut() {
@@ -449,9 +587,15 @@
             if (!record || record.jam_keluar) return;
 
             const now = new Date();
-            // GANTI DENGAN INI:
-            const pad = n => n.toString().padStart(2, '0');
-            record.jam_keluar = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            const location = await getCurrentLocation();
+            // GANTI DENGAN INI:
+            const pad = n => n.toString().padStart(2, '0');
+            record.jam_keluar = ${pad(now.getHours())}:${pad(now.getMinutes())};
+            
+            if (location.lat) {
+                record.lat = location.lat;
+                record.lng = location.lng;
+            }
             record.synced = false;
 
             if (typeof window.saveAttendanceOfflineFirst === 'function') {
@@ -464,6 +608,7 @@
             saveLocalData();
             renderDashboard();
             renderHistory();
+            alert("Absen keluar berhasil.");
         }
 
         // ==================== RENDER ====================
@@ -479,10 +624,11 @@
 
             if (!record) {
                 statusText.textContent = "Belum Absen Masuk";
-                actionArea.appendChild(createButton("📍 Absen Masuk", "bg-emerald-500 text-emerald-950", doCheckIn));
+                const btn = createButton("📍 Absen Masuk + Lokasi", "bg-emerald-500 text-emerald-950", doCheckIn);
+                actionArea.appendChild(btn);
             } else if (!record.jam_keluar) {
                 statusText.textContent = "Sedang Bekerja";
-                actionArea.appendChild(createButton("🛑 Absen Keluar", "bg-rose-500 text-white", doCheckOut));
+                actionArea.appendChild(createButton("🛑 Absen Keluar + Lokasi", "bg-rose-500 text-white", doCheckOut));
                 actionArea.appendChild(createButton(record.photo_url ? "📸 Ganti Foto" : "📸 Tambah Foto", "bg-slate-800", addPhoto));
             } else {
                 statusText.textContent = "Sudah Pulang";
@@ -511,12 +657,14 @@
                 const div = document.createElement('div');
                 div.className = 'bg-slate-900 border border-slate-700 rounded-3xl p-5';
                 const isPending = !record.synced || record.pending_photo_base64;
+                const hasLocation = record.lat && record.lng;
 
                 div.innerHTML = `
                     <div class="flex justify-between">
                         <div>
                             <div class="font-semibold">${record.tanggal}</div>
                             <div class="text-emerald-400 text-sm font-mono">${record.jam_masuk || ''} ${record.jam_keluar ? '→ ' + record.jam_keluar : ''}</div>
+                            ${hasLocation ? `<div class="text-xs text-blue-400 mt-1">📍 Lokasi tercatat</div>` : ''}
                         </div>
                         <div class="text-xs ${isPending ? 'text-amber-400' : 'text-emerald-400'}">${isPending ? 'PENDING' : 'SYNCED'}</div>
                     </div>
