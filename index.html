@@ -43,6 +43,9 @@
         .toast-warning { background-color: #d97706; color: white; }
         .toast-error { background-color: #dc2626; color: white; }
     </style>
+    <!-- Toastify.js -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 </head>
 <body>
     <!-- Toast Container -->
@@ -68,8 +71,8 @@
                 
                 <button id="btn-admin-login"
                         class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full font-medium transition-colors">
-                    <h1 class="text-2xl font-bold text-slate-900" id="greeting">Halo, Siswa!</h1>
-                     <p class="text-sm text-slate-500" id="current-date"></p>
+                    <h1 class="text-xs font-bold text-slate-900" id="greeting">Halo, Siswa!</h1>
+                     <p class="text-xs text-slate-500" id="current-date"></p>
                 </button>
             </div>
         </div>
@@ -258,17 +261,27 @@
 
         // ==================== TOAST ====================
         function showToast(message, type = 'success') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            let bgClass = type === 'warning' ? 'toast-warning' : type === 'error' ? 'toast-error' : 'toast-success';
-            
-            toast.className = `toast ${bgClass} px-6 py-3 shadow-xl flex items-center gap-x-3`;
-            toast.innerHTML = `
-                <div class="flex-1 text-sm font-medium">${message}</div>
-                <button onclick="this.parentElement.remove()" class="text-white/70 hover:text-white text-xl leading-none">×</button>
-            `;
-            container.appendChild(toast);
-            setTimeout(() => toast.parentElement && toast.parentElement.removeChild(toast), type === 'error' ? 8000 : 4500);
+            let backgroundColor = "#059669"; // emerald-600
+        
+            if (type === 'warning') backgroundColor = "#d97706";
+            if (type === 'error') backgroundColor = "#dc2626";
+        
+            Toastify({
+                text: message,
+                duration: type === 'error' ? 8000 : 4500,
+                close: true,
+                gravity: "bottom",
+                position: "center",
+                stopOnFocus: true,
+                style: {
+                    background: backgroundColor,
+                    borderRadius: "12px",
+                    padding: "14px 20px",
+                    fontSize: "14px",
+                    maxWidth: "92%",
+                    boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)"
+                }
+            }).showToast();
         }
 
         // ==================== HELPER ====================
