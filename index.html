@@ -645,10 +645,7 @@
         }
 
         function updateGreeting() {
-            const greetingEl = document.getElementById('greeting');
-            if (greetingEl) {
-                greetingEl.textContent = `Halo, ${profile.nama || 'Siswa'}!`;
-            }
+            document.getElementById('greeting').textContent = `Halo, ${profile.nama || 'Siswa'}!`;
             document.getElementById('nama').value = profile.nama || '';
             document.getElementById('nis').value = profile.nis || '';
             document.getElementById('kelas').value = profile.kelas || '';
