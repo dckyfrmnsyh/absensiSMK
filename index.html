@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi PKL • Modern</title>
+    <title>Absensi PKL • SMK Negeri 1 Tana Tidung</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="sync-manager.js"></script>
@@ -14,42 +14,15 @@
             color: #0f172a;
             font-family: system-ui, -apple-system, sans-serif;
         }
-        
         .section { display: none; }
         .section.active { display: block; }
-        
-        .action-card {
-            transition: all 0.2s ease;
-        }
-        .action-card:active {
-            transform: scale(0.98);
-        }
-        
-        .bottom-nav {
-            background-color: white;
-            border-top: 1px solid #e2e8f0;
-        }
-        
-        .stat-card {
-            background-color: white;
-            border: 1px solid #e2e8f0;
-        }
-        
-        .modern-header {
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        
-        .nav-active {
-            color: #10b981;
-            font-weight: 600;
-        }
-        
-        .card {
-            background: white;
-            border: 1px solid #e2e8f0;
-        }
-
+        .action-card { transition: all 0.2s ease; }
+        .action-card:active { transform: scale(0.98); }
+        .bottom-nav { background-color: white; border-top: 1px solid #e2e8f0; }
+        .stat-card { background-color: white; border: 1px solid #e2e8f0; }
+        .modern-header { background: white; border-bottom: 1px solid #e2e8f0; }
+        .nav-active { color: #10b981; font-weight: 600; }
+        .card { background: white; border: 1px solid #e2e8f0; }
         .toast {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
             z-index: 9999; padding: 12px 24px; border-radius: 9999px;
@@ -68,12 +41,16 @@
     <!-- Header -->
     <div class="modern-header sticky top-0 z-50 px-4 pt-4 pb-3">
         <div class="max-w-md mx-auto flex items-center justify-between">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-900" id="greeting">Halo, Siswa!</h1>
-                <p class="text-sm text-slate-500" id="current-date"></p>
+            <div class="flex items-center gap-x-3">
+                <img src="logo-sekolah.png" alt="Logo SMK" class="w-10 h-10 rounded-full object-cover" 
+                     onerror="this.src='https://via.placeholder.com/40x40/10b981/ffffff?text=SMK'">
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900">SMK Negeri 1 Tana Tidung</h1>
+                    <p class="text-xs text-slate-500">Absensi PKL</p>
+                </div>
             </div>
             
-            <div class="flex items-center gap-x-3">
+            <div class="flex items-center gap-x-2">
                 <div id="admin-status" class="hidden items-center gap-x-2 px-3 py-1 rounded-full bg-emerald-100 border border-emerald-200 text-xs">
                     <span class="text-emerald-700">👑 Admin</span>
                     <button onclick="logoutAdmin()" class="text-emerald-600 hover:text-emerald-800 text-xs">Logout</button>
@@ -90,6 +67,12 @@
     <!-- DASHBOARD -->
     <div id="section-dashboard" class="section active max-w-md mx-auto px-4 pt-6 pb-24">
         
+        <!-- Warning Text -->
+        <div class="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-sm">
+            <p class="font-medium text-emerald-700">ABSENSI WAJIB SETIAP HARI KERJA</p>
+            <p class="text-emerald-600 text-xs mt-1">Foto wajib di depan kantor / lokasi kerja</p>
+        </div>
+
         <!-- Status -->
         <div class="mb-6">
             <div class="flex justify-between items-end mb-2">
@@ -102,7 +85,7 @@
         </div>
 
         <!-- Action Cards -->
-        <div class="space-y-4 mb-8" id="action-area"></div>
+        <div class="space-y-4 mb-6" id="action-area"></div>
 
         <!-- Statistik Harian -->
         <div class="mb-6">
@@ -123,16 +106,24 @@
             </div>
         </div>
 
-        <div id="pending-info" class="hidden mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-3xl text-sm">
-            <div class="flex items-center gap-x-3 text-yellow-700">
+        <!-- Pending Info -->
+        <div id="pending-info" class="hidden mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-2xl text-sm">
+            <div class="flex items-center gap-x-2 text-yellow-700">
                 <span>📸</span>
                 <span>Ada data pending. Tekan tombol Sync.</span>
             </div>
         </div>
 
-        <!-- Sync Button -->
-        <div class="mb-4">
-            <button onclick="handleSync()" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-2xl">☁️ Sync Sekarang</button>
+        <!-- Sync Buttons -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <button onclick="handleSync()" 
+                    class="py-3 bg-emerald-600 text-white font-bold rounded-2xl flex items-center justify-center gap-x-2">
+                ☁️ Sync ke Supabase
+            </button>
+            <button onclick="loadFromSupabase()" 
+                    class="py-3 bg-white border border-emerald-600 text-emerald-600 font-bold rounded-2xl flex items-center justify-center gap-x-2">
+                📥 Ambil dari Cloud
+            </button>
         </div>
     </div>
 
@@ -179,17 +170,13 @@
             <h3 class="text-xl font-bold text-slate-900">Panel Admin</h3>
             <div class="flex gap-x-2">
                 <button onclick="loadAllAttendanceData()" class="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-2xl">Muat Ulang</button>
-                <button onclick="exportToCSV()" class="px-4 py-2 bg-slate-200 text-sm font-medium rounded-2xl">Export CSV</button>
+                <button onclick="exportToCSV()" class="px-4 py-2 bg-white border border-emerald-600 text-emerald-600 text-sm font-medium rounded-2xl">Export CSV</button>
             </div>
         </div>
-        <div class="mb-4">
-            <div class="flex gap-x-2">
-                <input type="text" id="admin-search" placeholder="Cari nama atau NIS..." 
-                       class="flex-1 bg-white border border-slate-300 rounded-2xl px-4 py-2 text-sm" onkeyup="filterAdminData()">
-                <input type="date" id="admin-date-filter" 
-                       class="bg-white border border-slate-300 rounded-2xl px-4 py-2 text-sm"
-                       onchange="filterAdminData()">
-            </div>
+        <div class="mb-4 flex gap-x-2">
+            <input type="text" id="admin-search" placeholder="Cari nama/NIS..." 
+                   class="flex-1 bg-white border border-slate-300 rounded-2xl px-4 py-2 text-sm" onkeyup="filterAdminData()">
+            <input type="date" id="admin-date-filter" class="bg-white border border-slate-300 rounded-2xl px-4 py-2 text-sm" onchange="filterAdminData()">
         </div>
         <div class="card rounded-3xl overflow-hidden">
             <table class="w-full text-sm">
@@ -197,7 +184,7 @@
                     <tr>
                         <th class="px-4 py-3 text-left">Tanggal</th>
                         <th class="px-4 py-3 text-left">Nama</th>
-                        <th class="px-4 py-3 text-left">NIS / Kelas</th>
+                        <th class="px-4 py-3 text-left">NIS</th>
                         <th class="px-4 py-3 text-left">Jam</th>
                         <th class="px-4 py-3 text-left">Foto</th>
                     </tr>
@@ -211,20 +198,16 @@
     <div class="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto">
         <div class="bottom-nav px-2 py-2 flex justify-around items-center rounded-t-3xl">
             <button onclick="showSection('dashboard')" class="flex flex-col items-center px-4 py-1 text-xs nav-active" id="nav-dashboard">
-                <span class="text-xl mb-0.5">🏠</span>
-                <span>Home</span>
+                <span class="text-xl mb-0.5">🏠</span><span>Home</span>
             </button>
             <button onclick="showSection('riwayat')" class="flex flex-col items-center px-4 py-1 text-xs text-slate-500" id="nav-riwayat">
-                <span class="text-xl mb-0.5">📋</span>
-                <span>Riwayat</span>
+                <span class="text-xl mb-0.5">📋</span><span>Riwayat</span>
             </button>
             <button onclick="showSection('profil')" class="flex flex-col items-center px-4 py-1 text-xs text-slate-500" id="nav-profil">
-                <span class="text-xl mb-0.5">👤</span>
-                <span>Profil</span>
+                <span class="text-xl mb-0.5">👤</span><span>Profil</span>
             </button>
             <button onclick="showAdminSection()" class="flex flex-col items-center px-4 py-1 text-xs text-slate-500" id="nav-admin">
-                <span class="text-xl mb-0.5">⚙️</span>
-                <span>Admin</span>
+                <span class="text-xl mb-0.5">⚙️</span><span>Admin</span>
             </button>
         </div>
     </div>
@@ -251,10 +234,10 @@
     </div>
 
     <script>
-        // ==================== SUPABASE CONFIG ====================
+        // ==================== CONFIG ====================
         const SUPABASE_URL = 'https://hqoiqoqdqzkkssgoqhpj.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhxb2lxb3FkcXpra3NzZ29xaHBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNTQ4MzcsImV4cCI6MjA5NjYzMDg0MzcsImF1ZCI6ImF1dGhlbnRpY2F0ZWQiLCJlbWFpbCI6InB1YmxpYyJ9.2lOypI6pCX1W2DqJBPyXh1wJ1q1h2k3l4m5n6o7p8q';
-        
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE'; // Ganti dengan key asli dari Supabase
+
         let supabaseClient = null;
         let profile = { nama: "Siswa PKL", nis: "", kelas: "", tempat_pkl: "" };
         let attendances = [];
@@ -266,9 +249,7 @@
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            let bgClass = 'toast-success';
-            if (type === 'warning') bgClass = 'toast-warning';
-            if (type === 'error') bgClass = 'toast-error';
+            let bgClass = type === 'warning' ? 'toast-warning' : type === 'error' ? 'toast-error' : 'toast-success';
             
             toast.className = `toast ${bgClass} px-6 py-3 shadow-xl flex items-center gap-x-3`;
             toast.innerHTML = `
@@ -276,76 +257,50 @@
                 <button onclick="this.parentElement.remove()" class="text-white/70 hover:text-white text-xl leading-none">×</button>
             `;
             container.appendChild(toast);
-            
-            const timeout = type === 'error' ? 8000 : 4500;
-            setTimeout(() => {
-                if (toast.parentElement) toast.parentElement.removeChild(toast);
-            }, timeout);
+            setTimeout(() => toast.parentElement && toast.parentElement.removeChild(toast), type === 'error' ? 8000 : 4500);
         }
 
         // ==================== HELPER ====================
         function formatTime(date) {
-            const h = date.getHours().toString().padStart(2, '0');
-            const m = date.getMinutes().toString().padStart(2, '0');
-            return `${h}:${m}`;
+            return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
         }
 
         function updateDate() {
-            const el = document.getElementById('current-date');
-            const today = new Date();
-            el.textContent = today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+            document.getElementById('current-date').textContent = new Date().toLocaleDateString('id-ID', { 
+                weekday: 'long', day: 'numeric', month: 'long' 
+            });
         }
 
         // ==================== IMAGE COMPRESSION ====================
         async function compressImageToMaxSize(file, maxSizeMB = 5) {
             const maxSizeBytes = maxSizeMB * 1024 * 1024;
-            let quality = 0.75;
-            let maxWidth = 1024;
-
-            let compressedBlob = await compressWithCanvas(file, maxWidth, quality);
-
+            let quality = 0.75, maxWidth = 1024;
+            let blob = await compressWithCanvas(file, maxWidth, quality);
             let attempts = 0;
-            while (compressedBlob.size > maxSizeBytes && attempts < 10) {
+            while (blob.size > maxSizeBytes && attempts < 10) {
                 attempts++;
-                if (quality > 0.4) {
-                    quality -= 0.08;
-                } else if (maxWidth > 480) {
-                    maxWidth = Math.floor(maxWidth * 0.7);
-                    quality = 0.65;
-                } else {
-                    quality = 0.4;
-                }
-                compressedBlob = await compressWithCanvas(file, maxWidth, quality);
+                if (quality > 0.4) quality -= 0.08;
+                else if (maxWidth > 480) { maxWidth = Math.floor(maxWidth * 0.7); quality = 0.65; }
+                else quality = 0.4;
+                blob = await compressWithCanvas(file, maxWidth, quality);
             }
-            return compressedBlob;
+            return blob;
         }
 
         function compressWithCanvas(file, maxWidth, quality) {
-            return new Promise((resolve) => {
+            return new Promise(resolve => {
                 const reader = new FileReader();
-                reader.onload = (event) => {
+                reader.onload = e => {
                     const img = new Image();
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        let width = img.width;
-                        let height = img.height;
-
-                        if (width > maxWidth) {
-                            height = Math.round((height * maxWidth) / width);
-                            width = maxWidth;
-                        }
-
-                        canvas.width = width;
-                        canvas.height = height;
-
-                        const ctx = canvas.getContext('2d', { alpha: false });
-                        ctx.drawImage(img, 0, 0, width, height);
-
-                        canvas.toBlob((blob) => {
-                            resolve(blob || file);
-                        }, 'image/jpeg', quality);
+                        let w = img.width, h = img.height;
+                        if (w > maxWidth) { h = Math.round((h * maxWidth) / w); w = maxWidth; }
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext('2d', { alpha: false }).drawImage(img, 0, 0, w, h);
+                        canvas.toBlob(b => resolve(b || file), 'image/jpeg', quality);
                     };
-                    img.src = event.target.result;
+                    img.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
             });
@@ -353,132 +308,89 @@
 
         // ==================== GEOLOCATION ====================
         async function getCurrentLocation() {
-            return new Promise((resolve) => {
-                if (!navigator.geolocation) {
-                    resolve({ lat: null, lng: null });
-                    return;
-                }
+            return new Promise(resolve => {
+                if (!navigator.geolocation) return resolve({ lat: null, lng: null });
                 navigator.geolocation.getCurrentPosition(
-                    (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                    pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
                     () => resolve({ lat: null, lng: null }),
                     { enableHighAccuracy: true, timeout: 10000 }
                 );
             });
         }
 
-        // ==================== SUPABASE INIT + AUTH ====================
+        // ==================== SUPABASE ====================
         function initSupabase() {
             supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            console.log("%c[Supabase] Connected", "color:#3ecf8e");
-
             supabaseClient.auth.onAuthStateChange((event, session) => {
                 if (session?.user) {
                     currentUser = session.user;
                     checkUserRole();
                 } else {
-                    currentUser = null;
-                    isAdmin = false;
-                    updateAdminUI();
+                    currentUser = null; isAdmin = false; updateAdminUI();
                 }
             });
         }
 
         async function checkUserRole() {
             if (!currentUser) return;
-
             try {
-                const { data: profileData } = await supabaseClient
-                    .from('profiles')
-                    .select('role, nama, nis')
-                    .eq('id', currentUser.id)
-                    .single();
-
-                if (profileData?.role === 'admin') {
+                const { data } = await supabaseClient.from('profiles').select('role, nama').eq('id', currentUser.id).single();
+                if (data?.role === 'admin') {
                     isAdmin = true;
                     updateAdminUI();
-                    showToast(`Selamat datang, Admin ${profileData.nama || ''}`, 'success');
+                    showToast(`Selamat datang, Admin ${data.nama || ''}`, 'success');
                 }
-            } catch (err) {
-                console.log("Profile not found or error checking role");
-            }
+            } catch (e) {}
         }
 
         function updateAdminUI() {
-            const statusEl = document.getElementById('admin-status');
-            const loginBtn = document.getElementById('btn-admin-login');
-
+            const status = document.getElementById('admin-status');
+            const btn = document.getElementById('btn-admin-login');
             if (isAdmin) {
-                statusEl.classList.remove('hidden');
-                statusEl.classList.add('flex');
-                loginBtn.style.display = 'none';
+                status.classList.remove('hidden'); status.classList.add('flex');
+                btn.style.display = 'none';
             } else {
-                statusEl.classList.add('hidden');
-                statusEl.classList.remove('flex');
-                loginBtn.style.display = 'block';
+                status.classList.add('hidden'); status.classList.remove('flex');
+                btn.style.display = 'block';
             }
         }
 
         async function loginAsAdmin() {
             const email = document.getElementById('admin-email').value.trim();
-            const password = document.getElementById('admin-password').value.trim();
-
-            if (!email || !password) {
-                showToast("Email dan password harus diisi", 'warning');
-                return;
-            }
+            const pass = document.getElementById('admin-password').value.trim();
+            if (!email || !pass) return showToast("Email & password harus diisi", 'warning');
 
             try {
-                const { data, error } = await supabaseClient.auth.signInWithPassword({
-                    email: email,
-                    password: password
-                });
-
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
                 if (error) throw error;
-
                 currentUser = data.user;
                 hideAdminLogin();
                 await checkUserRole();
-
             } catch (err) {
-                console.error(err);
-                showToast("Login gagal: " + (err.message || "Periksa email & password"), 'error');
+                showToast("Login gagal: " + err.message, 'error');
             }
         }
 
         async function logoutAdmin() {
             await supabaseClient.auth.signOut();
-            isAdmin = false;
-            currentUser = null;
-            updateAdminUI();
-            showSection('dashboard');
-            showToast("Anda telah logout dari mode Admin.", 'success');
+            isAdmin = false; currentUser = null; updateAdminUI(); showSection('dashboard');
+            showToast("Logout berhasil", 'success');
         }
 
-        function showAdminLogin() {
-            document.getElementById('admin-login-modal').classList.remove('hidden');
-        }
+        function showAdminLogin() { document.getElementById('admin-login-modal').classList.remove('hidden'); }
+        function hideAdminLogin() { document.getElementById('admin-login-modal').classList.add('hidden'); }
 
-        function hideAdminLogin() {
-            document.getElementById('admin-login-modal').classList.add('hidden');
-        }
-
-        // ==================== LOAD DATA ====================
+        // ==================== DATA ====================
         function loadLocalData() {
-            const savedProfile = localStorage.getItem('pkl_profile');
-            if (savedProfile) profile = JSON.parse(savedProfile);
-
-            const saved = localStorage.getItem('pkl_attendances');
-            if (saved) attendances = JSON.parse(saved);
+            const saved = localStorage.getItem('pkl_profile');
+            if (saved) profile = JSON.parse(saved);
         }
 
         function saveLocalData() {
             localStorage.setItem('pkl_profile', JSON.stringify(profile));
-            if (!window.saveAttendanceOfflineFirst) {
-                localStorage.setItem('pkl_attendances', JSON.stringify(attendances));
-            }
         }
 
-        // ==================== SYNC ====================
+        // ==================== SYNC (Full Integration with sync-manager.js) ====================
         async function handleSync() {
             if (typeof window.syncPendingRecords === 'function') {
                 const result = await window.syncPendingRecords();
@@ -491,101 +403,30 @@
                     renderHistory();
                 }
             } else {
-                await syncToSupabase();
+                showToast("Sync manager belum siap. Pastikan sync-manager.js dimuat.", 'warning');
             }
-        }
-
-        async function syncToSupabase() {
-            if (!supabaseClient || !navigator.onLine) {
-                showToast("Tidak ada koneksi internet.", 'warning');
-                return;
-            }
-
-            const unsynced = attendances.filter(a => !a.synced);
-            if (unsynced.length === 0) {
-                showToast("Semua data sudah tersinkron.", 'success');
-                return;
-            }
-
-            let success = 0, failed = 0;
-
-            for (const record of unsynced) {
-                try {
-                    const { error } = await supabaseClient.from('attendances').upsert({
-                        id: record.id,
-                        student_nis: profile.nis,
-                        student_name: profile.nama,
-                        tanggal: record.tanggal,
-                        jam_masuk: record.jam_masuk,
-                        jam_keluar: record.jam_keluar,
-                        lat: record.lat,
-                        lng: record.lng,
-                        status_masuk: record.status_masuk,
-                        photo_url: record.photo_url || null
-                    });
-
-                    if (!error) {
-                        record.synced = true;
-                        success++;
-                    } else {
-                        failed++;
-                        console.error("Sync error:", error);
-                    }
-                } catch (e) {
-                    failed++;
-                }
-            }
-
-            saveLocalData();
-            renderHistory();
-            showToast(`${success} berhasil, ${failed} gagal.`, failed > 0 ? 'warning' : 'success');
         }
 
         async function loadFromSupabase() {
-            if (!supabaseClient) return;
-
-            try {
-                let query = supabaseClient.from('attendances').select('*').order('tanggal', { ascending: false });
-
-                if (currentUser && !isAdmin && profile.nis) {
-                    query = query.eq('student_nis', profile.nis);
-                }
-
-                const { data, error } = await query;
-                if (error) throw error;
-
-                data.forEach(cloudRecord => {
-                    const idx = attendances.findIndex(a => a.id === cloudRecord.id);
-                    if (idx === -1) {
-                        attendances.push({ ...cloudRecord, synced: true });
-                    }
-                });
-
-                saveLocalData();
+            if (typeof window.loadAttendanceData === 'function') {
+                attendances = await window.loadAttendanceData();
+                renderDashboard();
                 renderHistory();
-                showToast("Data berhasil dimuat dari Supabase.", 'success');
-            } catch (e) {
-                showToast("Gagal memuat data.", 'error');
+                showToast("Data berhasil dimuat dari cloud", 'success');
+            } else {
+                showToast("Fungsi load dari sync-manager belum tersedia", 'warning');
             }
         }
 
-        // ==================== ADMIN: LOAD ALL DATA ====================
+        // ==================== ADMIN ====================
         async function loadAllAttendanceData() {
             if (!supabaseClient) return;
-
             try {
-                const { data, error } = await supabaseClient
-                    .from('attendances')
-                    .select('*')
-                    .order('tanggal', { ascending: false });
-
+                const { data, error } = await supabaseClient.from('attendances').select('*').order('tanggal', { ascending: false });
                 if (error) throw error;
-
                 allAdminData = data || [];
                 renderAdminTable(allAdminData);
-                showToast(`Berhasil memuat ${allAdminData.length} data.`, 'success');
-            } catch (err) {
-                console.error(err);
+            } catch (e) {
                 showToast("Gagal memuat data admin. Pastikan RLS sudah benar.", 'error');
             }
         }
@@ -593,153 +434,64 @@
         function renderAdminTable(data) {
             const tbody = document.getElementById('admin-table-body');
             tbody.innerHTML = '';
-
-            if (!data || data.length === 0) {
+            if (!data.length) {
                 tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Tidak ada data</td></tr>`;
                 return;
             }
-
-            data.forEach(record => {
+            data.forEach(r => {
                 const row = document.createElement('tr');
-                row.className = 'hover:bg-slate-50 border-b border-slate-200';
-
-                const hasLocation = record.lat && record.lng;
-                const locationHTML = hasLocation 
-                    ? `<a href="https://www.google.com/maps?q=${record.lat},${record.lng}" target="_blank" class="text-blue-600 hover:underline text-xs">Lihat</a>` 
-                    : '-';
-
-                const photoHTML = record.photo_url 
-                    ? `<img src="${record.photo_url}" class="w-9 h-9 object-cover rounded cursor-pointer" onclick="showPhoto('${record.photo_url}')">` 
-                    : '-';
-
                 row.innerHTML = `
-                    <td class="px-4 py-3">${record.tanggal}</td>
-                    <td class="px-4 py-3 font-medium">${record.student_name || '-'}</td>
-                    <td class="px-4 py-3 text-xs">${record.student_nis || ''} ${record.kelas ? '('+record.kelas+')' : ''}</td>
-                    <td class="px-4 py-3 text-xs">${record.jam_masuk || ''} → ${record.jam_keluar || '-'}</td>
-                    <td class="px-4 py-3">${photoHTML}</td>
+                    <td class="px-4 py-3">${r.tanggal}</td>
+                    <td class="px-4 py-3 font-medium">${r.student_name || '-'}</td>
+                    <td class="px-4 py-3 text-xs">${r.student_nis || ''}</td>
+                    <td class="px-4 py-3 text-xs">${r.jam_masuk || ''} → ${r.jam_keluar || ''}</td>
+                    <td class="px-4 py-3">${r.photo_url ? '📷' : '-'}</td>
                 `;
                 tbody.appendChild(row);
             });
         }
 
         function filterAdminData() {
-            const search = document.getElementById('admin-search').value.toLowerCase();
-            const dateFilter = document.getElementById('admin-date-filter').value;
-
+            const q = document.getElementById('admin-search').value.toLowerCase();
+            const date = document.getElementById('admin-date-filter').value;
             let filtered = allAdminData;
-
-            if (search) {
-                filtered = filtered.filter(r => 
-                    (r.student_name && r.student_name.toLowerCase().includes(search)) ||
-                    (r.student_nis && r.student_nis.includes(search))
-                );
-            }
-
-            if (dateFilter) {
-                filtered = filtered.filter(r => r.tanggal === dateFilter);
-            }
-
+            if (q) filtered = filtered.filter(r => (r.student_name && r.student_name.toLowerCase().includes(q)) || (r.student_nis && r.student_nis.includes(q)));
+            if (date) filtered = filtered.filter(r => r.tanggal === date);
             renderAdminTable(filtered);
         }
 
         function exportToCSV() {
-            if (!allAdminData.length) {
-                showToast("Tidak ada data untuk diexport", 'warning');
-                return;
-            }
-
-            let csv = "Tanggal,Nama Siswa,NIS,Kelas,Jam Masuk,Jam Keluar,Latitude,Longitude\n";
-            allAdminData.forEach(r => {
-                csv += `${r.tanggal},${r.student_name || ''},${r.student_nis || ''},${r.kelas || ''},${r.jam_masuk || ''},${r.jam_keluar || ''},${r.lat || ''},${r.lng || ''}\n`;
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            link.href = url;
-            link.download = `absensi_semua_${new Date().toISOString().split('T')[0]}.csv`;
-            link.click();
+            if (!allAdminData.length) return showToast("Tidak ada data", 'warning');
+            let csv = "Tanggal,Nama,NIS,Jam Masuk,Jam Keluar\n";
+            allAdminData.forEach(r => csv += `${r.tanggal},${r.student_name || ''},${r.student_nis || ''},${r.jam_masuk || ''},${r.jam_keluar || ''}\n`);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+            a.download = `absensi_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
         }
 
         // ==================== PHOTO ====================
         async function addPhoto() {
             const record = getTodayRecord();
-            if (!record) {
-                showToast("Absen dulu baru bisa tambah foto", 'warning');
-                return;
-            }
+            if (!record) return showToast("Absen dulu baru bisa tambah foto", 'warning');
 
             const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.capture = 'environment';
-
+            input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
             input.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-
-                const compressedBlob = await compressImageToMaxSize(file, 5);
+                const blob = await compressImageToMaxSize(file, 5);
 
                 if (typeof window.saveAttendanceOfflineFirst === 'function') {
-                    try {
-                        await window.saveAttendanceOfflineFirst({
-                            id: record.id,
-                            tanggal: record.tanggal,
-                            jam_masuk: record.jam_masuk,
-                            jam_keluar: record.jam_keluar,
-                            lat: record.lat,
-                            lng: record.lng,
-                            status_masuk: record.status_masuk,
-                            student_nis: profile.nis,
-                            student_name: profile.nama
-                        }, compressedBlob);
-
-                        showToast("Foto berhasil disimpan.", 'success');
-                        if (typeof window.loadAttendanceData === 'function') {
-                            attendances = await window.loadAttendanceData();
-                            renderDashboard();
-                            renderHistory();
-                        }
-                        return;
-                    } catch (err) {
-                        showToast("Gagal menyimpan foto.", 'error');
-                    }
-                }
-
-                // Fallback
-                if (navigator.onLine && supabaseClient) {
-                    try {
-                        const fileName = `absen-${record.id}-${Date.now()}.jpg`;
-                        const { data, error } = await supabaseClient.storage.from('photos').upload(fileName, compressedBlob);
-                        if (error) throw error;
-
-                        const { data: urlData } = supabaseClient.storage.from('photos').getPublicUrl(fileName);
-                        record.photo_url = urlData.publicUrl;
-                        record.synced = false;
-                        saveLocalData();
-                        renderDashboard();
-                        renderHistory();
-                        showToast("Foto berhasil diupload!", 'success');
-                        return;
-                    } catch (err) {
-                        showToast("Gagal upload foto.", 'error');
-                    }
-                }
-
-                // Base64 fallback
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    record.pending_photo_base64 = ev.target.result;
-                    record.synced = false;
-                    saveLocalData();
+                    await window.saveAttendanceOfflineFirst(record, blob);
+                    attendances = await window.loadAttendanceData();
                     renderDashboard();
                     renderHistory();
-                    showToast("Foto disimpan lokal.", 'warning');
-                };
-                reader.readAsDataURL(compressedBlob);
+                    showToast("Foto berhasil disimpan (akan diupload saat sync)", 'success');
+                } else {
+                    showToast("Sync manager belum siap", 'warning');
+                }
             };
-
             input.click();
         }
 
@@ -751,39 +503,29 @@
 
         async function doCheckIn() {
             const today = new Date().toISOString().split('T')[0];
-            if (getTodayRecord()) {
-                showToast("Sudah absen hari ini", 'warning');
-                return;
-            }
+            if (getTodayRecord()) return showToast("Sudah absen hari ini", 'warning');
 
             const now = new Date();
-            const location = await getCurrentLocation();
-
-            const recordData = {
+            const loc = await getCurrentLocation();
+            const record = {
                 id: Date.now(),
                 tanggal: today,
                 jam_masuk: formatTime(now),
                 jam_keluar: null,
-                lat: location.lat,
-                lng: location.lng,
+                lat: loc.lat, lng: loc.lng,
                 status_masuk: "Hadir",
-                photo_url: null,
                 synced: false
             };
 
             if (typeof window.saveAttendanceOfflineFirst === 'function') {
-                await window.saveAttendanceOfflineFirst(recordData, null);
-                if (typeof window.loadAttendanceData === 'function') {
-                    attendances = await window.loadAttendanceData();
-                }
+                await window.saveAttendanceOfflineFirst(record, null);
+                attendances = await window.loadAttendanceData();
             } else {
-                attendances.unshift(recordData);
+                attendances.unshift(record);
             }
-
-            saveLocalData();
             renderDashboard();
             renderHistory();
-            showToast("Absen masuk berhasil.", 'success');
+            showToast("Absen masuk berhasil", 'success');
         }
 
         async function doCheckOut() {
@@ -791,26 +533,18 @@
             if (!record || record.jam_keluar) return;
 
             const now = new Date();
-            const location = await getCurrentLocation();
-
+            const loc = await getCurrentLocation();
             record.jam_keluar = formatTime(now);
-            if (location.lat) {
-                record.lat = location.lat;
-                record.lng = location.lng;
-            }
+            if (loc.lat) { record.lat = loc.lat; record.lng = loc.lng; }
             record.synced = false;
 
             if (typeof window.saveAttendanceOfflineFirst === 'function') {
                 await window.saveAttendanceOfflineFirst(record, null);
-                if (typeof window.loadAttendanceData === 'function') {
-                    attendances = await window.loadAttendanceData();
-                }
+                attendances = await window.loadAttendanceData();
             }
-
-            saveLocalData();
             renderDashboard();
             renderHistory();
-            showToast("Absen keluar berhasil.", 'success');
+            showToast("Absen keluar berhasil", 'success');
         }
 
         // ==================== RENDER ====================
@@ -821,33 +555,21 @@
             const pendingInfo = document.getElementById('pending-info');
             actionArea.innerHTML = '';
 
-            const hasPending = attendances.some(a => !a.synced || a.pending_photo_base64);
+            const hasPending = attendances.some(a => !a.synced);
             pendingInfo.classList.toggle('hidden', !hasPending);
 
             if (!record) {
                 statusText.textContent = "Belum Absen";
-                actionArea.innerHTML = `
-                    <button onclick="doCheckIn()" class="action-card w-full py-6 bg-emerald-600 text-white font-bold text-xl rounded-3xl flex items-center justify-center gap-x-3">
-                        📍 ABSEN MASUK
-                    </button>
-                `;
+                actionArea.innerHTML = `<button onclick="doCheckIn()" class="action-card w-full py-6 bg-emerald-600 text-white font-bold text-xl rounded-3xl flex items-center justify-center gap-x-3">📍 ABSEN MASUK</button>`;
             } else if (!record.jam_keluar) {
                 statusText.textContent = "Sedang Bekerja";
                 actionArea.innerHTML = `
-                    <button onclick="doCheckOut()" class="action-card w-full py-6 bg-red-500 text-white font-bold text-xl rounded-3xl flex items-center justify-center gap-x-3 mb-3">
-                        🛑 ABSEN KELUAR
-                    </button>
-                    <button onclick="addPhoto()" class="action-card w-full py-4 bg-white border border-slate-300 text-slate-700 font-medium rounded-3xl flex items-center justify-center gap-x-2">
-                        📸 ${record.pending_photo_base64 ? 'Ganti Foto' : 'Tambah Foto'}
-                    </button>
+                    <button onclick="doCheckOut()" class="action-card w-full py-6 bg-red-500 text-white font-bold text-xl rounded-3xl flex items-center justify-center gap-x-3 mb-3">🛑 ABSEN KELUAR</button>
+                    <button onclick="addPhoto()" class="action-card w-full py-4 bg-white border border-slate-300 text-slate-700 font-medium rounded-3xl flex items-center justify-center gap-x-2">📸 ${record.pending_photo_base64 ? 'Ganti Foto' : 'Tambah Foto'}</button>
                 `;
             } else {
                 statusText.textContent = "Sudah Pulang";
-                actionArea.innerHTML = `
-                    <button onclick="addPhoto()" class="action-card w-full py-4 bg-white border border-slate-300 text-slate-700 font-medium rounded-3xl flex items-center justify-center gap-x-2">
-                        📸 ${record.pending_photo_base64 ? 'Ganti Foto' : 'Tambah Foto'}
-                    </button>
-                `;
+                actionArea.innerHTML = `<button onclick="addPhoto()" class="action-card w-full py-4 bg-white border border-slate-300 text-slate-700 font-medium rounded-3xl flex items-center justify-center gap-x-2">📸 ${record.pending_photo_base64 ? 'Ganti Foto' : 'Tambah Foto'}</button>`;
             }
             updateDailyStats();
         }
@@ -863,45 +585,26 @@
         function renderHistory() {
             const container = document.getElementById('history-list');
             container.innerHTML = '';
-
-            if (attendances.length === 0) {
+            if (!attendances.length) {
                 container.innerHTML = `<p class="text-center text-slate-400 py-8">Belum ada riwayat</p>`;
                 return;
             }
-
             attendances.forEach(record => {
                 const div = document.createElement('div');
                 div.className = 'card rounded-3xl p-5';
-                const isPending = !record.synced || record.pending_photo_base64;
-                const hasLocation = record.lat && record.lng;
-
                 div.innerHTML = `
                     <div class="flex justify-between">
                         <div>
                             <div class="font-semibold">${record.tanggal}</div>
                             <div class="text-sm text-emerald-600">${record.jam_masuk || ''} ${record.jam_keluar ? '→ ' + record.jam_keluar : ''}</div>
-                            ${hasLocation ? `<div class="text-xs text-blue-500 mt-1">📍 Lokasi tercatat</div>` : ''}
                         </div>
-                        <div class="text-xs px-3 py-1 rounded-full ${isPending ? 'bg-yellow-100 text-yellow-700' : 'bg-emerald-100 text-emerald-700'}">
-                            ${isPending ? 'PENDING' : 'SYNCED'}
+                        <div class="text-xs px-3 py-1 rounded-full ${record.synced ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-700'}">
+                            ${record.synced ? 'SYNCED' : 'PENDING'}
                         </div>
                     </div>
-                    ${record.photo_url ? `<img src="${record.photo_url}" class="mt-3 w-16 h-16 object-cover rounded-2xl border border-slate-300 cursor-pointer" onclick="showPhoto('${record.photo_url}')">` : ''}
                 `;
                 container.appendChild(div);
             });
-        }
-
-        function showPhoto(url) {
-            const modal = document.createElement('div');
-            modal.className = 'fixed inset-0 bg-black/90 flex items-center justify-center z-[100]';
-            modal.innerHTML = `
-                <div class="max-w-lg w-full p-4">
-                    <img src="${url}" class="w-full rounded-3xl">
-                    <button onclick="this.closest('.fixed').remove()" class="mt-4 w-full py-3 bg-white rounded-2xl text-slate-900 font-bold">Tutup</button>
-                </div>
-            `;
-            document.body.appendChild(modal);
         }
 
         function showSection(section) {
@@ -918,20 +621,13 @@
             }
 
             if (section === 'riwayat') renderHistory();
-            if (section === 'admin' && isAdmin && allAdminData.length === 0) {
-                loadAllAttendanceData();
-            }
+            if (section === 'admin' && isAdmin) loadAllAttendanceData();
         }
 
         async function showAdminSection() {
-            if (!isAdmin) {
-                showAdminLogin();
-                return;
-            }
+            if (!isAdmin) { showAdminLogin(); return; }
             showSection('admin');
-            if (allAdminData.length === 0) {
-                await loadAllAttendanceData();
-            }
+            if (allAdminData.length === 0) await loadAllAttendanceData();
         }
 
         function saveProfile() {
@@ -945,7 +641,7 @@
                 window.initSyncManager(supabaseClient, profile);
             }
             document.getElementById('greeting').textContent = `Halo, ${profile.nama || 'Siswa'}!`;
-            showToast("Profil berhasil disimpan.", 'success');
+            showToast("Profil berhasil disimpan", 'success');
         }
 
         function updateGreeting() {
@@ -965,6 +661,37 @@
             renderDashboard();
             renderHistory();
 
+            // Initialize Sync Manager
+            if (typeof window.initSyncManager === 'function' && supabaseClient) {
+                window.initSyncManager(supabaseClient, profile);
+            }
+
+            // Register Service Worker + Background Sync
+            if ('serviceWorker' in navigator) {
+                try {
+                    const reg = await navigator.serviceWorker.register('/sw.js');
+                    console.log('[App] Service Worker registered');
+
+                    navigator.serviceWorker.addEventListener('message', (event) => {
+                        if (event.data.type === 'BACKGROUND_SYNC') {
+                            showToast(event.data.message || 'Melakukan sinkronisasi...', 'success');
+                            if (typeof window.syncPendingRecords === 'function') {
+                                window.syncPendingRecords();
+                            }
+                        }
+                    });
+                } catch (e) {
+                    console.error('[App] Service Worker failed:', e);
+                }
+            }
+
+            // Auto Background Sync saat online
+            window.addEventListener('online', () => {
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({ type: 'TRIGGER_SYNC' });
+                }
+            });
+
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session?.user) {
                 currentUser = session.user;
@@ -972,8 +699,8 @@
             }
 
             setTimeout(() => {
-                showToast("Aplikasi siap. Admin bisa login untuk melihat semua data.", 'success');
-            }, 1500);
+                showToast("Aplikasi siap digunakan. Selamat absen!", 'success');
+            }, 1200);
         }
 
         window.onload = initApp;
