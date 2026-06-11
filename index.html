@@ -265,8 +265,12 @@
         }
 
         // ==================== HELPER ====================
+        
+        // ==================== FORMAT TIME (FIXED) ====================
         function formatTime(date) {
-            return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            return `${hours}:${minutes}`;   // ← Selalu pakai titik dua (:)
         }
 
         function updateDate() {
