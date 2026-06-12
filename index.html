@@ -210,7 +210,18 @@
             </div>
         </div>
     </div>
-
+    <!-- Admin Login Modal (sederhana) -->
+    <div id="admin-login-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div class="bg-white rounded-3xl p-8 w-full max-w-sm mx-4">
+            <h3 class="text-xl font-bold mb-6">Login Admin</h3>
+            <input id="admin-email" type="email" value="admin@sekolah.sch.id" class="w-full border border-slate-300 rounded-2xl px-4 py-3 mb-3">
+            <input id="admin-password" type="password" value="admin123" class="w-full border border-slate-300 rounded-2xl px-4 py-3 mb-6">
+            <div class="flex gap-3">
+                <button onclick="loginAsAdmin()" class="flex-1 py-4 bg-emerald-600 text-white font-bold rounded-3xl">Login</button>
+                <button onclick="hideAdminLogin()" class="flex-1 py-4 bg-slate-200 rounded-3xl">Batal</button>
+            </div>
+        </div>
+    </div>
     <script>
         // ==================== CONFIG & GLOBAL ====================
         const SUPABASE_URL = 'https://hqoiqoqdqzkkssgoqhpj.supabase.co';
@@ -265,7 +276,25 @@
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.getElementById(`section-${section}`).classList.add('active');
         }
+        // ==================== HELPER ====================
+        function showSection(section) {
+            // Untuk tahap ini hanya dashboard yang aktif
+            console.log(`Navigasi ke: ${section}`);
+            showToast(`Fitur ${section} akan ditambahkan di tahap berikutnya`, "warning");
+        }
 
+        function showAdminLogin() {
+            document.getElementById('admin-login-modal').classList.remove('hidden');
+        }
+
+        function hideAdminLogin() {
+            document.getElementById('admin-login-modal').classList.add('hidden');
+        }
+
+        function loginAsAdmin() {
+            hideAdminLogin();
+            showToast("✅ Login Admin Berhasil (Demo)", "success");
+        }
         // ==================== LOCATION ====================
         async function getCurrentLocation() {
             return new Promise(resolve => {
