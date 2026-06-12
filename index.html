@@ -212,17 +212,14 @@
     </div>
 
     <script>
-        // ==================== CONFIG ====================
+        // ==================== CONFIG & GLOBAL ====================
         const SUPABASE_URL = 'https://hqoiqoqdqzkkssgoqhpj.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhxb2lxb3FkcXpra3NzZ29xaHBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNTQ4MzcsImV4cCI6MjA5NjYzMDgzN30.8KRYBV-t47ca08Q8G4yqn3bfVLPFEE9PDIrtAfbpVnE';
 
         let supabaseClient = null;
-        let profile = {};
         let attendances = [];
-        let allAdminData = [];
         let isAdmin = false;
 
-        // ==================== VALIDASI JAM KERJA ====================
         const JAM_MASUK_MINIMAL = "07:30";
         const JAM_KELUAR_MINIMAL = "16:30";
         const STRICT_MODE = true;
@@ -235,30 +232,33 @@
             if (!jamMasuk || !jamKeluar) return 0;
             const [h1, m1] = jamMasuk.split(':').map(Number);
             const [h2, m2] = jamKeluar.split(':').map(Number);
-            return (h2 * 60 + m2) - (h1 * 60 + m1);
+            return (h2*60 + m2) - (h1*60 + m1);
         }
 
         function validasiJamKerja(jamMasuk, jamKeluar) {
-            if (!jamMasuk) return { status: "Belum Absen", badge: "bg-slate-100 text-slate-600", keterangan: "", durasi: "-" };
-            if (!jamKeluar) return { status: "Belum Lengkap", badge: "bg-yellow-100 text-yellow-700", keterangan: "", durasi: "-" };
+            if (!jamMasuk) return { status: "Belum Absen", badge: "bg-slate-100 text-slate-600", durasi: "-" };
+            if (!jamKeluar) return { status: "Belum Lengkap", badge: "bg-yellow-100 text-yellow-700", durasi: "-" };
 
             const durasiMenit = hitungDurasiMenit(jamMasuk, jamKeluar);
-            const durasiJam = Math.floor(durasiMenit / 60);
-            const sisaMenit = durasiMenit % 60;
-
-            const terlambat = jamMasuk > JAM_MASUK_MINIMAL;
-            const pulangCepat = jamKeluar < JAM_KELUAR_MINIMAL;
+            const jam = Math.floor(durasiMenit / 60);
+            const menit = durasiMenit % 60;
 
             let status = "Hadir Penuh", badge = "bg-emerald-100 text-emerald-700";
-            if (terlambat && !pulangCepat) { status = "Terlambat"; badge = "bg-amber-100 text-amber-700"; }
-            else if (!terlambat && pulangCepat) { status = "Pulang Cepat"; badge = "bg-orange-100 text-orange-700"; }
-            else if (terlambat && pulangCepat) { status = "Tidak Lengkap"; badge = "bg-red-100 text-red-700"; }
+            if (jamMasuk > JAM_MASUK_MINIMAL && jamKeluar >= JAM_KELUAR_MINIMAL) { status = "Terlambat"; badge = "bg-amber-100 text-amber-700"; }
+            else if (jamMasuk <= JAM_MASUK_MINIMAL && jamKeluar < JAM_KELUAR_MINIMAL) { status = "Pulang Cepat"; badge = "bg-orange-100 text-orange-700"; }
+            else if (jamMasuk > JAM_MASUK_MINIMAL && jamKeluar < JAM_KELUAR_MINIMAL) { status = "Tidak Lengkap"; badge = "bg-red-100 text-red-700"; }
 
-            return { status, badge, durasi: `${durasiJam}j ${sisaMenit}m` };
+            return { status, badge, durasi: `${jam}j ${menit}m` };
         }
 
-        function showToast(msg, type = 'success') {
-            Toastify({ text: msg, duration: 2500, gravity: "bottom", position: "center", className: type === 'error' ? 'bg-red-600' : type === 'warning' ? 'bg-amber-600' : 'bg-emerald-600' }).showToast();
+        function showToast(message, type = "success") {
+            Toastify({
+                text: message,
+                duration: 3000,
+                gravity: "bottom",
+                position: "center",
+                style: { background: type === "error" ? "#dc2626" : "#10b981" }
+            }).showToast();
         }
 
         function showSection(section) {
@@ -266,115 +266,166 @@
             document.getElementById(`section-${section}`).classList.add('active');
         }
 
-        function showAdminSection() {
-            if (!isAdmin) return showAdminLogin();
-            showSection('admin');
-            loadAllAttendanceData();
-        }
-
-        // ==================== SYNC FUNCTIONS ====================
-        async function handleSync() {
-            if (typeof window.syncPendingData === 'function') {
-                await window.syncPendingData();
-                attendances = await window.loadAttendanceData();
-                renderDashboard();
-                renderHistory();
-                showToast("Sinkronisasi berhasil", 'success');
-            } else {
-                showToast("Sync Manager belum siap", 'warning');
-            }
-        }
-
-        async function loadFromSupabase() {
-            if (!supabaseClient) return showToast("Supabase belum terhubung", 'error');
-            try {
-                const { data, error } = await supabaseClient.from('attendances').select('*').order('tanggal', { ascending: false });
-                if (error) throw error;
-                attendances = data || [];
-                renderDashboard();
-                renderHistory();
-                showToast("Data berhasil diambil dari cloud", 'success');
-            } catch (err) {
-                showToast("Gagal mengambil data: " + err.message, 'error');
-            }
-        }
-
-        async function loadAllAttendanceData() {
-            if (!supabaseClient) return;
-            try {
-                const { data } = await supabaseClient.from('attendances').select('*').order('tanggal', { ascending: false });
-                allAdminData = data || [];
-                renderAdminTable(allAdminData);
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
         // ==================== LOCATION ====================
         async function getCurrentLocation() {
             return new Promise(resolve => {
-                if (!navigator.geolocation) return resolve({ lat: null, lng: null });
                 navigator.geolocation.getCurrentPosition(
-                    pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                    () => resolve({ lat: null, lng: null })
+                    p => resolve({lat: p.coords.latitude, lng: p.coords.longitude}),
+                    () => resolve({lat: null, lng: null})
                 );
             });
         }
 
-        // ==================== PROFILE ====================
-        function saveProfile() {
-            profile.nama = document.getElementById('nama').value || "Siswa PKL";
-            profile.nis = document.getElementById('nis').value;
-            profile.kelas = document.getElementById('kelas').value;
-            profile.tempat_pkl = document.getElementById('tempat').value;
-            showToast("Profil disimpan", 'success');
+        // ==================== CHECK IN & CHECK OUT ====================
+        async function doCheckIn() {
+            const today = new Date().toISOString().split('T')[0];
+            if (attendances.find(a => a.tanggal === today)) {
+                return showToast("Sudah absen hari ini", "warning");
+            }
+
+            const now = new Date();
+            const jamMasuk = formatTime(now);
+            const loc = await getCurrentLocation();
+
+            const validasi = validasiJamKerja(jamMasuk, null);
+
+            const record = {
+                id: Date.now(),
+                tanggal: today,
+                jam_masuk: jamMasuk,
+                jam_keluar: null,
+                status: validasi.status,
+                keterangan: validasi.keterangan || "",
+                durasi: validasi.durasi,
+                lat: loc.lat,
+                lng: loc.lng,
+                synced: false
+            };
+
+            if (typeof window.saveAttendanceOfflineFirst === 'function') {
+                await window.saveAttendanceOfflineFirst(record);
+                attendances = await window.loadAttendanceData() || [];
+            } else {
+                attendances.unshift(record);
+            }
+
+            renderDashboard();
+            renderHistory();
+            showToast("✅ Absen Masuk Berhasil", "success");
+        }
+
+        async function doCheckOut() {
+            const today = new Date().toISOString().split('T')[0];
+            const record = attendances.find(a => a.tanggal === today);
+            if (!record || record.jam_keluar) return showToast("Belum absen masuk atau sudah keluar", "warning");
+
+            const jamKeluar = formatTime(new Date());
+
+            if (STRICT_MODE && jamKeluar < JAM_KELUAR_MINIMAL) {
+                return showToast(`❌ Belum boleh keluar! Minimal ${JAM_KELUAR_MINIMAL}`, "error");
+            }
+
+            const validasi = validasiJamKerja(record.jam_masuk, jamKeluar);
+
+            record.jam_keluar = jamKeluar;
+            record.status = validasi.status;
+            record.durasi = validasi.durasi;
+            record.synced = false;
+
+            if (typeof window.saveAttendanceOfflineFirst === 'function') {
+                await window.saveAttendanceOfflineFirst(record);
+                attendances = await window.loadAttendanceData() || [];
+            }
+
+            renderDashboard();
+            renderHistory();
+            showToast("✅ Absen Keluar Berhasil", "success");
         }
 
         // ==================== RENDER ====================
-        function renderDashboard() { /* ... sama seperti sebelumnya ... */ 
-            // (Gunakan versi dari respons sebelumnya)
-            const record = attendances.find(a => a.tanggal === new Date().toISOString().split('T')[0]);
-            const statusText = document.getElementById('status-text');
+        function renderDashboard() {
+            const today = new Date().toISOString().split('T')[0];
+            const record = attendances.find(a => a.tanggal === today);
             const actionArea = document.getElementById('action-area');
+            const statusText = document.getElementById('status-text');
+
+            actionArea.innerHTML = '';
 
             if (!record) {
                 statusText.textContent = "Belum Absen";
-                actionArea.innerHTML = `<button onclick="doCheckIn()" class="action-card w-full py-6 bg-emerald-600 text-white font-bold text-xl rounded-3xl">📍 ABSEN MASUK</button>`;
+                actionArea.innerHTML = `<button onclick="doCheckIn()" class="action-card w-full py-8 bg-emerald-600 text-white text-2xl font-bold rounded-3xl shadow-lg">📍 ABSEN MASUK</button>`;
             } else if (!record.jam_keluar) {
                 statusText.textContent = "Sedang Bekerja";
-                actionArea.innerHTML = `<button onclick="doCheckOut()" class="action-card w-full py-6 bg-red-500 text-white font-bold text-xl rounded-3xl">🛑 ABSEN KELUAR</button>`;
+                actionArea.innerHTML = `<button onclick="doCheckOut()" class="action-card w-full py-8 bg-red-500 text-white text-2xl font-bold rounded-3xl shadow-lg">🛑 ABSEN KELUAR</button>`;
             } else {
                 const v = validasiJamKerja(record.jam_masuk, record.jam_keluar);
-                statusText.innerHTML = `${v.status} <span class="text-sm ${v.badge} px-3 py-1 rounded-full">${v.durasi}</span>`;
-                actionArea.innerHTML = `<div class="text-center text-emerald-600 font-medium">✅ Absensi hari ini selesai</div>`;
+                statusText.innerHTML = `${v.status} <span class="text-base ${v.badge} px-4 py-1 rounded-full">${v.durasi}</span>`;
+                actionArea.innerHTML = `<div class="text-center py-8 text-emerald-600 font-medium text-xl">✅ Absensi Hari Ini Selesai</div>`;
             }
         }
 
-        function renderHistory() { /* Gunakan versi lengkap dari sebelumnya */ 
+        function renderHistory() {
             const container = document.getElementById('history-list');
-            container.innerHTML = attendances.length ? '' : '<p class="text-center py-10 text-slate-400">Belum ada riwayat</p>';
-            // ... (implementasi lengkap seperti respons sebelumnya)
+            container.innerHTML = '';
+            if (!attendances.length) {
+                container.innerHTML = `<p class="text-center text-slate-400 py-12">Belum ada riwayat absensi</p>`;
+                return;
+            }
+            attendances.sort((a,b) => b.tanggal.localeCompare(a.tanggal));
+            attendances.forEach(r => {
+                const v = validasiJamKerja(r.jam_masuk, r.jam_keluar);
+                const div = document.createElement('div');
+                div.className = "bg-white border rounded-3xl p-5";
+                div.innerHTML = `
+                    <div class="flex justify-between">
+                        <div>
+                            <div class="font-semibold">${r.tanggal}</div>
+                            <div class="text-sm">${r.jam_masuk} → ${r.jam_keluar || '??:??'}</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="inline-block px-4 py-1 rounded-full text-xs font-medium ${v.badge}">${v.status}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
         }
 
-        function renderAdminTable(data) { /* Gunakan versi sebelumnya */ }
+        // ==================== SYNC ====================
+        async function handleSync() {
+            if (typeof window.syncPendingData === 'function') {
+                await window.syncPendingData();
+                attendances = await window.loadAttendanceData() || [];
+                renderDashboard();
+                renderHistory();
+                showToast("Sinkronisasi berhasil", "success");
+            } else {
+                showToast("Sync Manager belum siap", "warning");
+            }
+        }
 
-        function filterAdminData() { /* Gunakan versi sebelumnya */ }
-
-        // ==================== CHECK IN / OUT ====================
-        async function doCheckIn() { /* Gunakan versi lengkap dari respons sebelumnya */ }
-        async function doCheckOut() { /* Gunakan versi lengkap dari respons sebelumnya */ }
-
-        // ==================== REALTIME ====================
-        function initRealtimeNotifications() { /* Gunakan versi sebelumnya */ }
+        async function loadFromSupabase() {
+            if (!supabaseClient) return;
+            try {
+                const { data } = await supabaseClient.from('attendances').select('*').order('tanggal', {ascending: false});
+                attendances = data || [];
+                renderDashboard();
+                renderHistory();
+                showToast("Data diambil dari Supabase", "success");
+            } catch(e) {
+                showToast("Gagal mengambil data", "error");
+            }
+        }
 
         // ==================== INIT ====================
         async function initApp() {
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            
             if (typeof window.initSyncManager === 'function') {
-                window.initSyncManager(supabaseClient, profile);
+                window.initSyncManager(supabaseClient, {});
             }
-            initRealtimeNotifications();
-            await loadFromSupabase();
+
+            attendances = await window.loadAttendanceData?.() || [];
             renderDashboard();
             renderHistory();
         }
